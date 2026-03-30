@@ -1,0 +1,44 @@
+name: my_song_book
+description: "Il mio canzoniere Flutter con gestione accordi e loghi."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  
+  # Salvataggio dati
+  shared_preferences: ^2.2.2
+  
+  # Font e stile
+  google_fonts: ^6.1.0
+  
+  # Gestione ID univoci
+  uuid: ^4.2.1
+  
+  # Download e parsing web
+  http: ^1.1.0
+  html: ^0.15.4
+
+  # --- NUOVE DIPENDENZE PER PDF E CONDIVISIONE ---
+  pdf: ^3.10.8
+  printing: ^5.11.0
+  share_plus: ^12.0.1
+  path_provider: ^2.1.2 # Aggiunta per la gestione dei file temporanei in condivisione
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  # --- SEZIONE ASSETS CORRETTA (Indentazione a 2 spazi) ---
+  assets:
+    - assets/images/logo_horizontal.png
+    - assets/images/logo_vertical.png
