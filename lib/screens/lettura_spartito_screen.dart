@@ -164,7 +164,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 
   void _impaginaTesto() {
-    const int maxRighePerPagina = 18;
+    const int maxRighePerPagina = 24; 
     _pagine = [];
     List<dynamic> paginaCorrente = [];
 
@@ -425,7 +425,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 10),
                 child: Row(
-                  mainAxisSize: List<Widget>.empty().length >= 0 ? MainAxisSize.min : MainAxisSize.max,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     GestureDetector(
                       onTap: () => _mostraMenuSpaziatura(globalIdx),
@@ -676,7 +676,7 @@ class ChordRow extends StatelessWidget {
       context: context,
       builder: (ctx) => Wrap(
         children: [
-          Listle(
+          ListTile(
             leading: const Icon(Icons.edit, color: Colors.blue),
             title: const Text("Modifica Accordo"),
             onTap: () {
@@ -709,9 +709,8 @@ class ChordRow extends StatelessWidget {
 
   Future<void> _modificaAccordo(BuildContext context, int index) async {
     final controller = TextEditingController(text: accordi[index]['text']);
-    final nuovo = await _mostraDialog(context, controller, "Inserisci Accordo");
+    final nuovo = await _mostraDialog(context, controller);
     if (nuovo != null && nuovo.isNotEmpty) {
-      // Se siamo in trasposizione, calcoliamo l'originale inverso
       String original = currentTranspose == 0 
           ? nuovo 
           : ChordTransposer.transposeChord(nuovo, -currentTranspose, preferFlats);
@@ -724,9 +723,8 @@ class ChordRow extends StatelessWidget {
 
   Future<void> _gestisciNuovoAccordo(BuildContext context, double dx) async {
     final controller = TextEditingController();
-    final nuovo = await _mostraDialog(context, controller, "Inserisci Accordo");
+    final nuovo = await _mostraDialog(context, controller);
     if (nuovo != null && nuovo.isNotEmpty) {
-      // Se siamo in trasposizione, calcoliamo l'originale inverso
       String original = currentTranspose == 0 
           ? nuovo 
           : ChordTransposer.transposeChord(nuovo, -currentTranspose, preferFlats);
@@ -740,30 +738,65 @@ class ChordRow extends StatelessWidget {
     }
   }
 
-  Future<String?> _mostraDialog(BuildContext context, TextEditingController ctrl, String titolo) {
+  // --- NUOVA FINESTRA DI DIALOGO ---
+  Future<String?> _mostraDialog(BuildContext context, TextEditingController ctrl) {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(titolo),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(
-            fontFamily: "monospace",
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Colors.blue,
-          ),
-          decoration: const InputDecoration(hintText: 'es. Dom, Re/Fa#'),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(
+                      fontFamily: "monospace",
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: Colors.blue,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'DO#m7',
+                      hintStyle: TextStyle(color: Colors.black12),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    onSubmitted: (val) => Navigator.pop(ctx, val.trim()),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                  onPressed: () => ctrl.clear(),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.blue, thickness: 2),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Annulla")),
-          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text("OK")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx), 
+            child: const Text("ANNULLA", style: TextStyle(color: Colors.black54, fontSize: 13))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), 
+            child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold))
+          ),
         ],
       ),
     );
   }
 }
-
-// Mock o alias per evitare errori se non presente nel tuo snippet
-typedef Listle = ListTile;

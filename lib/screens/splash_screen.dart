@@ -54,20 +54,20 @@ class _SplashScreenState extends State<SplashScreen>
           Center(
             child: Image.asset(
               'assets/images/logo_vertical.png',
-              height: 200,
+              height: 120, // Ridotto per eleganza
             ),
           ),
 
           const SizedBox(height: 40),
 
-          // BARRA DI CARICAMENTO PIÙ PICCOLA E PIÙ CORTA
+          // BARRA DI CARICAMENTO
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 100.0),
+            padding: const EdgeInsets.symmetric(horizontal: 100.0), // Aggiunto 'padding:' mancante
             child: LinearProgressIndicator(
               value: _controller.value,
               backgroundColor: Colors.white24,
               color: Colors.white,
-              minHeight: 2, // più sottile, come nella tua foto
+              minHeight: 2,
             ),
           ),
         ],

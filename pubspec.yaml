@@ -27,8 +27,8 @@ dependencies:
   # --- NUOVE DIPENDENZE PER PDF E CONDIVISIONE ---
   pdf: ^3.10.8
   printing: ^5.11.0
-  share_plus: ^12.0.1
-  path_provider: ^2.1.2 # Aggiunta per la gestione dei file temporanei in condivisione
+  share_plus: ^10.0.0
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
@@ -38,7 +38,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # --- SEZIONE ASSETS CORRETTA (Indentazione a 2 spazi) ---
+  # --- SEZIONE ASSETS ---
   assets:
     - assets/images/logo_horizontal.png
     - assets/images/logo_vertical.png

@@ -52,14 +52,14 @@ class ComponiSpartitoScreen extends StatefulWidget {
   final String titolo;
   final String artista;
   final String testoIniziale;
-  final List<dynamic>? righeSalvate; // Nuovo parametro per gestire le bozze
+  final List<dynamic>? righeSalvate;
 
   const ComponiSpartitoScreen({
     super.key,
     required this.titolo,
     required this.artista,
     required this.testoIniziale,
-    this.righeSalvate, // Aggiunto al costruttore
+    this.righeSalvate,
   });
 
   @override
@@ -92,7 +92,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
   }
 
   void _inizializzaStruttura() {
-    // Se abbiamo righe salvate (provenienti da una bozza), usiamo quelle
     if (widget.righeSalvate != null && widget.righeSalvate!.isNotEmpty) {
       for (var r in widget.righeSalvate!) {
         TipoRiga tipo = TipoRiga.values.firstWhere((e) => e.name == r['tipo'], orElse: () => TipoRiga.testo);
@@ -110,7 +109,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
         ));
       }
     } else {
-      // Altrimenti inizializziamo dal testo piano (nuovo spartito)
       final linee = widget.testoIniziale.split('\n');
       for (String linea in linee) {
         if (linea.trim().isEmpty) {
@@ -282,23 +280,63 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     _selectedChordIndex = null;
   }
 
+  // --- FINESTRA DI DIALOGO AGGIORNATA ---
   Future<String?> _mostraDialogInputAccordo(String testoIniziale) {
     TextEditingController controller = TextEditingController(text: testoIniziale);
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Inserisci Accordo'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: _stileAccordi,
-          decoration: const InputDecoration(hintText: 'es. Dom, Re/Fa#'),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(
+                      fontFamily: "monospace",
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: Colors.blue,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'DO#m7',
+                      hintStyle: TextStyle(color: Colors.black12),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    onSubmitted: (val) => Navigator.pop(ctx, val.trim()),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                  onPressed: () => controller.clear(),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.blue, thickness: 2),
+          ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
           TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('OK'),
+            onPressed: () => Navigator.pop(ctx), 
+            child: const Text("ANNULLA", style: TextStyle(color: Colors.black54, fontSize: 13))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()), 
+            child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold))
           ),
         ],
       ),
@@ -519,7 +557,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
       }).toList(),
     };
 
-    // 1. Salvataggio nella destinazione scelta (Bozze o Scaletta)
     String key = isBozza ? "bozze" : "scaletta";
     List<String> list = prefs.getStringList(key) ?? [];
     
@@ -531,7 +568,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     list.add(jsonEncode(brano));
     await prefs.setStringList(key, list);
 
-    // 2. LOGICA AGGIUNTA: Se salvo in scaletta, elimino il file dalle bozze
     if (!isBozza) {
       List<String> bozzeList = prefs.getStringList("bozze") ?? [];
       bozzeList.removeWhere((e) {
@@ -548,6 +584,4 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
-
-  void _salvaTutto() => _salvaProcesso(isBozza: false);
 }

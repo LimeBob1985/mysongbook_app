@@ -27,10 +27,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
   List<Map<String, dynamic>> scalettaFiltrata = [];
   final TextEditingController _searchController = TextEditingController();
-  // ignore: unused_field
   bool _staCercando = false;
 
-  // Gestione Selezione Multipla
   bool modalitaSelezione = false;
   Set<int> selezionati = {};
 
@@ -44,6 +42,20 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // FUNZIONE DI PULIZIA ANTI-QUADRATINI
+  // Converte i caratteri speciali invisibili o curvi in standard ASCII
+  String _pulisciPerPdf(String testo) {
+    return testo
+        .replaceAll('’', "'") // Apostrofo curvo
+        .replaceAll('‘', "'")
+        .replaceAll('“', '"') // Virgonelette curve
+        .replaceAll('”', '"')
+        .replaceAll('–', '-') // Trattino lungo
+        .replaceAll('—', '-')
+        .replaceAll('\r', '') // Ritorno a capo Windows
+        .replaceAll(RegExp(r'[^\x00-\x7F]'), ' '); // Sostituisce ogni altro carattere non-ASCII con uno spazio
   }
 
   Future<void> _caricaListe() async {
@@ -182,21 +194,62 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     }
   }
 
+  // --- LOGICA PDF AGGIORNATA (CON FIX GRASSETTO) ---
   Future<void> _condividiBraniPdf(List<Map<String, dynamic>> brani) async {
     final pdf = pw.Document();
+    
+    // Definiamo i font esplicitamente per gestire il grassetto
+    final fontRegular = pw.Font.courier();
+    final fontBold = pw.Font.courierBold();
+
     for (var brano in brani) {
+      final String titolo = _pulisciPerPdf(brano["titolo"].toString().toUpperCase());
+      final String artista = _pulisciPerPdf(brano["artista"].toString());
+      final String testoGrezzo = brano["testo"].toString();
+
       pdf.addPage(pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) => [
-          pw.Text(brano["titolo"].toString().toUpperCase(), style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
-          pw.Text(brano["artista"].toString(), style: pw.TextStyle(fontSize: 16, color: PdfColors.grey700)),
-          pw.Divider(thickness: 1, height: 15),
-          pw.SizedBox(height: 10),
-          pw.Text(brano["testo"].toString(), style: const pw.TextStyle(fontSize: 11)),
-        ],
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+        build: (pw.Context context) {
+          List<pw.Widget> widgets = [
+            pw.Text(titolo, style: pw.TextStyle(fontSize: 20, font: fontBold, fontWeight: pw.FontWeight.bold)),
+            pw.Text(artista, style: pw.TextStyle(fontSize: 14, color: PdfColors.grey700, font: fontRegular)),
+            pw.SizedBox(height: 5),
+            pw.Divider(thickness: 1.5, color: PdfColors.black),
+            pw.SizedBox(height: 20),
+          ];
+
+          List<String> righe = testoGrezzo.split('\n');
+          for (var riga in righe) {
+            bool eAccordo = riga.contains('[AC]');
+            String rigaPulita = _pulisciPerPdf(riga.replaceAll('[AC]', ''));
+            
+            if (rigaPulita.trim().isEmpty && !eAccordo) {
+               widgets.add(pw.SizedBox(height: 12));
+               continue;
+            }
+
+            widgets.add(
+              pw.Padding(
+                padding: pw.EdgeInsets.only(bottom: eAccordo ? 0 : 2), 
+                child: pw.Text(
+                  rigaPulita, 
+                  style: pw.TextStyle(
+                    fontSize: eAccordo ? 11 : 10,
+                    font: eAccordo ? fontBold : fontRegular, 
+                    fontWeight: eAccordo ? pw.FontWeight.bold : pw.FontWeight.normal, // FORZA IL PESO
+                    color: eAccordo ? PdfColors.blue800 : PdfColors.black,
+                  ),
+                ),
+              ),
+            );
+          }
+          return widgets;
+        },
       ));
     }
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'scaletta_completa.pdf');
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'spartito_mysongbook.pdf');
     _resetRicerca();
   }
 
@@ -240,7 +293,9 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 _resetRicerca();
                 if (mounted) Navigator.pop(context);
               } catch (e) {
-                // Errore
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Formato JSON non valido")),
+                );
               }
             },
             child: const Text("IMPORTA", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
