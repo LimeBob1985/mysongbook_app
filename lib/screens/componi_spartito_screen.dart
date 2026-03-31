@@ -66,7 +66,7 @@ class ComponiSpartitoScreen extends StatefulWidget {
   State<ComponiSpartitoScreen> createState() => _ComponiSpartitoScreenState();
 }
 
-class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
+class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with WidgetsBindingObserver {
   final List<RigaOggetto> _struttura = [];
   ChordInstance? _selectedChord;
   int? _selectedLineIndex;
@@ -88,7 +88,25 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Monitora lo stato dell'app
     _inizializzaStruttura();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Rimuove il monitoraggio
+    for (var riga in _struttura) {
+      riga.controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Se l'app viene chiusa o messa in background, salva automaticamente come bozza
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _salvaProcesso(isBozza: true, isAutomatico: true);
+    }
   }
 
   void _inizializzaStruttura() {
@@ -125,14 +143,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     if (_struttura.isEmpty) {
       _struttura.add(RigaOggetto(tipo: TipoRiga.testo));
     }
-  }
-
-  @override
-  void dispose() {
-    for (var riga in _struttura) {
-      riga.controller.dispose();
-    }
-    super.dispose();
   }
 
   void _applicaGrassetto(TextEditingController controller) {
@@ -280,7 +290,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     _selectedChordIndex = null;
   }
 
-  // --- FINESTRA DI DIALOGO AGGIORNATA ---
   Future<String?> _mostraDialogInputAccordo(String testoIniziale) {
     TextEditingController controller = TextEditingController(text: testoIniziale);
     return showDialog<String>(
@@ -508,7 +517,7 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
 
   Widget _vDivider() => Container(width: 1, height: 18, color: Colors.white24);
 
-  void _salvaProcesso({required bool isBozza}) async {
+  void _salvaProcesso({required bool isBozza, bool isAutomatico = false}) async {
     final prefs = await SharedPreferences.getInstance();
     StringBuffer testoPiano = StringBuffer();
     Map<String, double> offsetsMap = {};
@@ -529,7 +538,7 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
           final chord = riga.accordi[c];
           int spaces = ((chord.x - currentX) / charWidth).floor();
           if (spaces < 0) spaces = 1;
-          String finalChordText = ChordUtils.normalizeChord(chord.text);
+          String finalChordText = chord.text;
           rigaCostruita += (" " * spaces) + finalChordText;
           currentX = chord.x + (finalChordText.length * charWidth);
           offsetsMap['0-$i-$c'] = chord.x;
@@ -561,8 +570,10 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     List<String> list = prefs.getStringList(key) ?? [];
     
     list.removeWhere((e) {
-      final m = jsonDecode(e);
-      return m['titolo'] == widget.titolo && m['artista'] == widget.artista;
+      try {
+        final m = jsonDecode(e);
+        return m['titolo'] == widget.titolo && m['artista'] == widget.artista;
+      } catch (e) { return false; }
     });
     
     list.add(jsonEncode(brano));
@@ -571,13 +582,16 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> {
     if (!isBozza) {
       List<String> bozzeList = prefs.getStringList("bozze") ?? [];
       bozzeList.removeWhere((e) {
-        final m = jsonDecode(e);
-        return m['titolo'] == widget.titolo && m['artista'] == widget.artista;
+        try {
+          final m = jsonDecode(e);
+          return m['titolo'] == widget.titolo && m['artista'] == widget.artista;
+        } catch (e) { return false; }
       });
       await prefs.setStringList("bozze", bozzeList);
     }
 
-    if (mounted) {
+    // Naviga solo se non è un salvataggio automatico (background)
+    if (!isAutomatico && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isBozza ? "Salvato nelle Bozze!" : "Spostato in Scaletta!"))
       );

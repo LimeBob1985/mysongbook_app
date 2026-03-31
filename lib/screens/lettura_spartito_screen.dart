@@ -549,19 +549,21 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
         children: [
           _circleButton("-", () => _trasponi(-1), Colors.grey.shade700, "Abbassa"),
           const SizedBox(width: 12),
-          Container(
-            width: 50, height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.black26)
+          ... [
+            Container(
+              width: 50, height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.black26)
+              ),
+              child: Text(
+                _trasposizione > 0 ? "+$_trasposizione" : _trasposizione.toString(),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+              ),
             ),
-            child: Text(
-              _trasposizione > 0 ? "+$_trasposizione" : _trasposizione.toString(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-            ),
-          ),
+          ],
           const SizedBox(width: 12),
           _circleButton("+", () => _trasponi(1), Colors.green.shade600, "Alza"),
         ],
@@ -601,6 +603,15 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    for (var riga in _strutturaCompleta) {
+      if (riga['controller'] != null) riga['controller'].dispose();
+    }
+    super.dispose();
   }
 }
 
@@ -738,7 +749,6 @@ class ChordRow extends StatelessWidget {
     }
   }
 
-  // --- NUOVA FINESTRA DI DIALOGO ---
   Future<String?> _mostraDialog(BuildContext context, TextEditingController ctrl) {
     return showDialog<String>(
       context: context,

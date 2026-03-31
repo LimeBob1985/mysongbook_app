@@ -41,22 +41,30 @@ class _BozzeScreenState extends State<BozzeScreen> {
     });
   }
 
+  // --- LOGICA DI ELIMINAZIONE AGGIORNATA PER PERSISTENZA IPHONE ---
   Future<void> _eliminaBozza(int indexFiltrato) async {
-    final bozza = bozzeFiltrate[indexFiltrato];
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Carica eliminati esistenti per non sovrascriverli
-    final listaEliminati = prefs.getStringList("eliminati") ?? [];
-    List<Map<String, dynamic>> eliminati = listaEliminati.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+    try {
+      final bozza = bozzeFiltrate[indexFiltrato];
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Carica eliminati esistenti per non sovrascriverli
+      final listaEliminati = prefs.getStringList("eliminati") ?? [];
+      List<Map<String, dynamic>> eliminati = listaEliminati.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
 
-    setState(() {
-      bozze.removeWhere((element) => element == bozza);
-      bozzeFiltrate.removeAt(indexFiltrato);
-      eliminati.add(bozza);
-    });
+      setState(() {
+        bozze.removeWhere((element) => element == bozza);
+        bozzeFiltrate.removeAt(indexFiltrato);
+        eliminati.add(bozza);
+      });
 
-    await prefs.setStringList("bozze", bozze.map((e) => jsonEncode(e)).toList());
-    await prefs.setStringList("eliminati", eliminati.map((e) => jsonEncode(e)).toList());
+      // Operazioni di salvataggio con await obbligatorio per iOS
+      await prefs.setStringList("bozze", bozze.map((e) => jsonEncode(e)).toList());
+      await prefs.setStringList("eliminati", eliminati.map((e) => jsonEncode(e)).toList());
+      
+      debugPrint("Bozze ed Eliminati aggiornati correttamente su disco.");
+    } catch (e) {
+      debugPrint("Errore durante l'eliminazione della bozza: $e");
+    }
   }
 
   @override
@@ -65,19 +73,23 @@ class _BozzeScreenState extends State<BozzeScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // HEADER CON SCRITTA FISSA (Stile coordinato)
+          // HEADER CON SCRITTA FISSA (Incluso in SafeArea per iOS)
           Container(
-            height: 70,
-            width: double.infinity,
             color: Colors.black,
-            child: const Center(
-              child: Text(
-                "BOZZE",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  fontSize: 16,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                height: 70,
+                width: double.infinity,
+                alignment: Alignment.center,
+                child: const Text(
+                  "BOZZE",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),

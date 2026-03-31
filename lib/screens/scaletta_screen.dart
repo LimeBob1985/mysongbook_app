@@ -44,18 +44,16 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     super.dispose();
   }
 
-  // FUNZIONE DI PULIZIA ANTI-QUADRATINI
-  // Converte i caratteri speciali invisibili o curvi in standard ASCII
   String _pulisciPerPdf(String testo) {
     return testo
-        .replaceAll('’', "'") // Apostrofo curvo
+        .replaceAll('’', "'")
         .replaceAll('‘', "'")
-        .replaceAll('“', '"') // Virgonelette curve
+        .replaceAll('“', '"')
         .replaceAll('”', '"')
-        .replaceAll('–', '-') // Trattino lungo
+        .replaceAll('–', '-')
         .replaceAll('—', '-')
-        .replaceAll('\r', '') // Ritorno a capo Windows
-        .replaceAll(RegExp(r'[^\x00-\x7F]'), ' '); // Sostituisce ogni altro carattere non-ASCII con uno spazio
+        .replaceAll('\r', '')
+        .replaceAll(RegExp(r'[^\x00-\x7F]'), ' ');
   }
 
   Future<void> _caricaListe() async {
@@ -70,12 +68,13 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
         String testoRecuperato = data["testo"] ??
             data["testo_originale"] ??
             data["content"] ??
-            "";
+            "" ;
 
         return {
           "titolo": data["titolo"] ?? data["title"] ?? "Senza Titolo",
           "artista": data["artista"] ?? data["artist"] ?? "Artista Sconosciuto",
           "testo": testoRecuperato,
+          "righe": data["righe"],
           "struttura_completa": data["struttura_completa"],
           "trasposizione": data["trasposizione"] ?? 0,
         };
@@ -107,7 +106,10 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
   void _eseguiRicerca(String query) {
     if (query.isEmpty) {
-      _resetRicerca();
+      setState(() {
+        _staCercando = false;
+        scalettaFiltrata = List.from(scaletta);
+      });
       return;
     }
     setState(() {
@@ -121,9 +123,15 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   }
 
   Future<void> _salvaListe() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList("scaletta", scaletta.map((e) => jsonEncode(e)).toList());
-    await prefs.setStringList("eliminati", eliminati.map((e) => jsonEncode(e)).toList());
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> stringListScaletta = scaletta.map((e) => jsonEncode(e)).toList();
+      final List<String> stringListEliminati = eliminati.map((e) => jsonEncode(e)).toList();
+      await prefs.setStringList("scaletta", stringListScaletta);
+      await prefs.setStringList("eliminati", stringListEliminati);
+    } catch (e) {
+      debugPrint("Errore durante il salvataggio dei dati: $e");
+    }
   }
 
   Future<void> _eliminaBrano(int indexFiltrato) async {
@@ -194,19 +202,15 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     }
   }
 
-  // --- LOGICA PDF AGGIORNATA (CON FIX GRASSETTO) ---
   Future<void> _condividiBraniPdf(List<Map<String, dynamic>> brani) async {
     final pdf = pw.Document();
-    
-    // Definiamo i font esplicitamente per gestire il grassetto
     final fontRegular = pw.Font.courier();
     final fontBold = pw.Font.courierBold();
 
     for (var brano in brani) {
       final String titolo = _pulisciPerPdf(brano["titolo"].toString().toUpperCase());
       final String artista = _pulisciPerPdf(brano["artista"].toString());
-      final String testoGrezzo = brano["testo"].toString();
-
+      
       pdf.addPage(pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 40),
@@ -219,30 +223,44 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             pw.SizedBox(height: 20),
           ];
 
-          List<String> righe = testoGrezzo.split('\n');
-          for (var riga in righe) {
-            bool eAccordo = riga.contains('[AC]');
-            String rigaPulita = _pulisciPerPdf(riga.replaceAll('[AC]', ''));
-            
-            if (rigaPulita.trim().isEmpty && !eAccordo) {
-               widgets.add(pw.SizedBox(height: 12));
-               continue;
-            }
+          if (brano["righe"] != null && brano["righe"] is List) {
+            List<dynamic> righeBrano = brano["righe"];
+            for (var riga in righeBrano) {
+              String acc = riga["accordi"] ?? "";
+              String txt = riga["testo"] ?? "";
 
-            widgets.add(
-              pw.Padding(
-                padding: pw.EdgeInsets.only(bottom: eAccordo ? 0 : 2), 
-                child: pw.Text(
-                  rigaPulita, 
-                  style: pw.TextStyle(
-                    fontSize: eAccordo ? 11 : 10,
-                    font: eAccordo ? fontBold : fontRegular, 
-                    fontWeight: eAccordo ? pw.FontWeight.bold : pw.FontWeight.normal, // FORZA IL PESO
-                    color: eAccordo ? PdfColors.blue800 : PdfColors.black,
-                  ),
-                ),
-              ),
-            );
+              if (acc.trim().isNotEmpty) {
+                widgets.add(pw.Text(_pulisciPerPdf(acc),
+                    style: pw.TextStyle(fontSize: 11, font: fontBold, color: PdfColors.blue800)));
+              }
+              if (txt.trim().isNotEmpty || (acc.isEmpty && txt.isEmpty)) {
+                widgets.add(pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 4),
+                  child: pw.Text(_pulisciPerPdf(txt), style: pw.TextStyle(fontSize: 10, font: fontRegular)),
+                ));
+              } else {
+                widgets.add(pw.SizedBox(height: 2));
+              }
+            }
+          } else {
+            List<String> righeLegacy = brano["testo"].toString().split('\n');
+            for (var riga in righeLegacy) {
+              bool eAccordo = riga.contains('[AC]');
+              String rigaPulita = _pulisciPerPdf(riga.replaceAll('[AC]', ''));
+              if (rigaPulita.trim().isEmpty && !eAccordo) {
+                widgets.add(pw.SizedBox(height: 12));
+                continue;
+              }
+              widgets.add(pw.Padding(
+                padding: pw.EdgeInsets.only(bottom: eAccordo ? 0 : 2),
+                child: pw.Text(rigaPulita,
+                    style: pw.TextStyle(
+                      fontSize: eAccordo ? 11 : 10,
+                      font: eAccordo ? fontBold : fontRegular,
+                      color: eAccordo ? PdfColors.blue800 : PdfColors.black,
+                    )),
+              ));
+            }
           }
           return widgets;
         },
@@ -372,52 +390,65 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
+          // APP BAR NERA
           Container(
-            height: 70,
-            width: double.infinity,
             color: Colors.black,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  left: 8,
-                  child: modalitaSelezione 
-                    ? IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 26), onPressed: () => setState(() => _resetRicerca()))
-                    : IconButton(icon: const Icon(Icons.file_download_outlined, color: Colors.white, size: 26), onPressed: _mostraDialogImporta),
-                ),
-                Container(
-                  width: MediaQuery.of(context).size.width * 0.65,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF333333),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white, width: 1),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _eseguiRicerca,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: const InputDecoration(
-                      hintText: "Cerca...",
-                      hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                      prefixIcon: Icon(Icons.search, color: Colors.grey, size: 20),
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                height: 70,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 4), // Ridotto padding laterale fascia
+                child: Row(
+                  children: [
+                    // Tasto Importa (Icona corretta: Freccia verso il basso)
+                    modalitaSelezione 
+                      ? IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 26), onPressed: () => setState(() => _resetRicerca()))
+                      : IconButton(icon: const Icon(Icons.file_download, color: Colors.white, size: 26), onPressed: _mostraDialogImporta),
+                    
+                    // Barra di ricerca (Più compatta)
+                    Expanded(
+                      child: Container(
+                        height: 36, // Altezza ridotta
+                        margin: const EdgeInsets.symmetric(horizontal: 4), // Margine ridotto
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF333333),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.white, width: 1),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: _eseguiRicerca,
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: const InputDecoration(
+                            hintText: "Cerca...",
+                            hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            prefixIcon: Icon(Icons.search, color: Colors.grey, size: 18),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  right: 8,
-                  child: modalitaSelezione 
-                    ? IconButton(icon: const Icon(Icons.share, color: Colors.amber, size: 28), onPressed: _avviaEsportazioneMultipla)
-                    : IconButton(
+                    
+                    if (modalitaSelezione)
+                      IconButton(
+                        icon: const Icon(Icons.share, color: Colors.amber, size: 28), 
+                        onPressed: _avviaEsportazioneMultipla
+                      ),
+                    
+                    if (!modalitaSelezione)
+                      IconButton(
                         icon: const Icon(Icons.add, color: Colors.white, size: 28),
                         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NuovoSpartitoScreen())).then((_) => _caricaListe()),
                       ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
+
+          // SOTTOMENU
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -426,18 +457,29 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               children: [
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CreaSpartitoScreen())),
-                  child: Text("crea spartito", style: TextStyle(color: Colors.white.withAlpha(76), fontSize: 14)),
+                  child: Text(
+                    "crea spartito", 
+                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)
+                  ),
                 ),
                 const SizedBox(width: 24),
-                const Text("scaletta", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text(
+                  "scaletta", 
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)
+                ),
                 const SizedBox(width: 24),
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BozzeScreen())),
-                  child: Text("bozze", style: TextStyle(color: Colors.white.withAlpha(76), fontSize: 14)),
+                  child: Text(
+                    "bozze", 
+                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)
+                  ),
                 ),
               ],
             ),
           ),
+
+          // LISTA
           Expanded(
             child: ListView.builder(
               itemCount: scalettaFiltrata.length,
@@ -495,13 +537,20 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               },
             ),
           ),
+
+          // BARRA ELIMINATI
           GestureDetector(
             onTap: eliminati.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EliminatiScreen())).then((_) { if (mounted) _caricaListe(); }),
             child: Container(
               width: double.infinity,
-              color: eliminati.isEmpty ? Colors.grey.withAlpha(51) : Colors.grey.shade400,
-              padding: const EdgeInsets.all(12),
-              child: Text("ELIMINATI: ${eliminati.length}", style: const TextStyle(fontWeight: FontWeight.bold)),
+              color: eliminati.isEmpty ? Colors.grey.withOpacity(0.1) : Colors.grey.shade400,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text("ELIMINATI: ${eliminati.length}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
             ),
           ),
         ],

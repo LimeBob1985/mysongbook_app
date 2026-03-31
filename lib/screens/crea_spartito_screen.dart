@@ -3,7 +3,7 @@ import '../services/parser_service.dart';
 import 'anteprima_spartito_screen.dart';
 import 'scaletta_screen.dart';
 import 'nuovo_spartito_screen.dart';
-import 'bozze_screen.dart'; // Import aggiunto
+import 'bozze_screen.dart';
 
 class CreaSpartitoScreen extends StatefulWidget {
   const CreaSpartitoScreen({super.key});
@@ -42,31 +42,38 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // TESTATA NERA (70px)
+          // TESTATA NERA CON LOGO E TASTO +
           Container(
-            height: 70,
-            width: double.infinity,
             color: Colors.black,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.asset(
-                  "assets/images/logo_horizontal.png",
-                  height: 36,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                height: 70,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // LOGO ORIZZONTALE
+                    Image.asset(
+                      "assets/images/logo_horizontal.png",
+                      height: 36,
+                    ),
+                    // TASTO + A DESTRA NELLA STESSA FASCIA
+                    Positioned(
+                      right: 16,
+                      child: IconButton(
+                        icon: const Icon(Icons.add, color: Colors.white, size: 28),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const NuovoSpartitoScreen()),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                Positioned(
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white, size: 28),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const NuovoSpartitoScreen()),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
 
@@ -94,7 +101,7 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   child: Text(
                     "scaletta",
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                       fontSize: 14,
                     ),
                   ),
@@ -112,7 +119,7 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   child: Text(
                     "bozze",
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                       fontSize: 14,
                     ),
                   ),

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/chord_utils.dart';
-import '../services/chord_transposer.dart'; // Import corretto basato sulla tua struttura
+import '../services/chord_transposer.dart'; 
 import 'scaletta_screen.dart';
 
 class AnteprimaSpartitoScreen extends StatefulWidget {
@@ -23,7 +23,7 @@ class AnteprimaSpartitoScreen extends StatefulWidget {
   State<AnteprimaSpartitoScreen> createState() => _AnteprimaSpartitoScreenState();
 }
 
-class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> {
+class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with WidgetsBindingObserver {
   late String testoOriginale;
   late int trasposizione;
   late List<String> righeOriginali;
@@ -43,12 +43,27 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Inizia a osservare lo stato dell'app
     testoOriginale = widget.testoOriginale;
     trasposizione = widget.trasposizioneIniziale;
     righeOriginali = testoOriginale.split('\n');
     rigaEAccordo = List<bool>.filled(righeOriginali.length, false);
     
     preferFlats = _calcolaPreferenzaBemolli(testoOriginale);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Rimuove l'osservatore
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Se l'app viene chiusa o messa in background su iPhone, salviamo subito
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _salvaInScaletta(automatico: true);
+    }
   }
 
   bool _calcolaPreferenzaBemolli(String t) {
@@ -103,7 +118,7 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> {
     });
   }
 
-  Future<void> _salvaInScaletta() async {
+  Future<void> _salvaInScaletta({bool automatico = false}) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> lista = prefs.getStringList("scaletta") ?? [];
 
@@ -142,8 +157,12 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> {
 
     lista.add(jsonEncode(brano));
     await prefs.setStringList("scaletta", lista);
-    if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ScalettaScreen()));
+    
+    // Se non è un salvataggio automatico (background), navighiamo alla scaletta
+    if (!automatico) {
+      if (!mounted) return;
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ScalettaScreen()));
+    }
   }
 
   @override
@@ -289,7 +308,7 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> {
           _circleButton("+", () => _trasponi(1), Colors.green.shade600, "Alza"),
           const Spacer(),
           ElevatedButton(
-            onPressed: _salvaInScaletta,
+            onPressed: () => _salvaInScaletta(automatico: false),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,

@@ -21,7 +21,6 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(seconds: 2),
     );
 
-    // Aggiorna la UI mentre l’animazione avanza
     _controller.addListener(() {
       setState(() {});
     });
@@ -47,30 +46,33 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // LOGO VERTICALE
-          Center(
-            child: Image.asset(
-              'assets/images/logo_vertical.png',
-              height: 120, // Ridotto per eleganza
+      // Avvolgiamo il contenuto nel SafeArea per rispettare i bordi dell'iPhone
+      body: SafeArea( 
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // LOGO VERTICALE (Ridotto leggermente)
+            Center(
+              child: Image.asset(
+                'assets/images/logo_vertical.png',
+                height: 100, 
+              ),
             ),
-          ),
 
-          const SizedBox(height: 40),
+            const SizedBox(height: 40),
 
-          // BARRA DI CARICAMENTO
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 100.0), // Aggiunto 'padding:' mancante
-            child: LinearProgressIndicator(
-              value: _controller.value,
-              backgroundColor: Colors.white24,
-              color: Colors.white,
-              minHeight: 2,
+            // BARRA DI CARICAMENTO
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 100.0),
+              child: LinearProgressIndicator(
+                value: _controller.value,
+                backgroundColor: Colors.white24,
+                color: Colors.white,
+                minHeight: 2,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
