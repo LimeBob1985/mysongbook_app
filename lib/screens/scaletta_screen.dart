@@ -188,9 +188,9 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             child: Text("ESPORTA SELEZIONE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           ),
           ListTile(
-            leading: const Icon(Icons.settings, color: Colors.amber),
-            title: const Text("Formato MySongBook (.json)", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("Perfetto per backup o altri utenti MySongBook", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            leading: const Icon(Icons.share, color: Colors.amber),
+            title: const Text("Formato MySongBook (.mysongbook)", style: TextStyle(color: Colors.white)),
+            subtitle: const Text("Invia i brani selezionati in formato compatibile", style: TextStyle(color: Colors.grey, fontSize: 12)),
             onTap: () {
               Navigator.pop(context);
               _condividiBraniJson(braniScelti);
@@ -206,12 +206,21 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     try {
       final String dati = jsonEncode(brani);
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/scaletta_export_${DateTime.now().millisecondsSinceEpoch}.json');
-      await file.writeAsString(dati);
-      await Share.shareXFiles([XFile(file.path)], text: 'Ti invio la mia scaletta da MySongBook');
+      // Usiamo l'estensione personalizzata .mysongbook
+      final String fileName = "export_${DateTime.now().millisecondsSinceEpoch}.mysongbook";
+      final file = File('${directory.path}/$fileName');
+      
+      await file.writeAsString(dati, flush: true);
+      
+      if (await file.exists()) {
+        await Share.shareXFiles(
+          [XFile(file.path, mimeType: 'application/json')], 
+          text: 'Ti invio la mia scaletta da MySongBook'
+        );
+      }
       _resetRicerca();
     } catch (e) {
-      debugPrint("Errore esportazione JSON: $e");
+      debugPrint("Errore esportazione MySongBook: $e");
     }
   }
 
@@ -227,8 +236,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
           maxLines: 5,
           style: const TextStyle(color: Colors.white, fontSize: 12),
           decoration: const InputDecoration(
-            hintText: "Incolla qui il contenuto del file JSON...",
-            hintStyle: TextStyle(color: Colors.grey),
+            hintText: "Incolla qui il codice MySongBook...",
+            hintStyle: TextStyle(color: Colors.white24),
             enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
           ),
         ),
@@ -244,10 +253,27 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 setState(() {
                   if (decoded is List) {
                     for (var b in decoded) {
-                      scaletta.add(Map<String, dynamic>.from(b));
+                      // Applichiamo la stessa pulizia dati del caricamento
+                      final Map<String, dynamic> branoPulito = {
+                        "titolo": b["titolo"] ?? b["title"] ?? "Senza Titolo",
+                        "artista": b["artista"] ?? b["artist"] ?? "Artista Sconosciuto",
+                        "testo": b["testo"] ?? b["testo_originale"] ?? b["content"] ?? "",
+                        "righe": b["righe"],
+                        "struttura_completa": b["struttura_completa"],
+                        "trasposizione": b["trasposizione"] ?? 0,
+                      };
+                      scaletta.add(branoPulito);
                     }
                   } else {
-                    scaletta.add(Map<String, dynamic>.from(decoded));
+                    final Map<String, dynamic> branoPulito = {
+                      "titolo": decoded["titolo"] ?? decoded["title"] ?? "Senza Titolo",
+                      "artista": decoded["artista"] ?? decoded["artist"] ?? "Artista Sconosciuto",
+                      "testo": decoded["testo"] ?? decoded["testo_originale"] ?? decoded["content"] ?? "",
+                      "righe": decoded["righe"],
+                      "struttura_completa": decoded["struttura_completa"],
+                      "trasposizione": decoded["trasposizione"] ?? 0,
+                    };
+                    scaletta.add(branoPulito);
                   }
                 });
                 await _salvaListe();
@@ -256,7 +282,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 if (mounted) Navigator.pop(context);
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Formato JSON non valido")),
+                  const SnackBar(content: Text("Formato non valido o corrotto")),
                 );
               }
             },

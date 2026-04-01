@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; // Aggiunto per le traduzioni
+import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'screens/splash_screen.dart';
-import 'tools/fix_reset_scaletta.dart';
+// import 'tools/fix_reset_scaletta.dart'; // Mantieni se ti serve, altrimenti puoi rimuovere
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,21 +22,23 @@ class MySongBookApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       
       // --- CONFIGURAZIONE LINGUA ITALIANA ---
+      // Questi delegati dicono a Flutter come tradurre i widget nativi (bottoni, menu, tasto incolla)
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('it', 'IT'),
+        Locale('it', 'IT'), // Italiano
       ],
-      locale: const Locale('it', 'IT'),
+      // Forza l'app a usare l'italiano indipendentemente dalla lingua del telefono
+      locale: const Locale('it', 'IT'), 
       // ---------------------------------------
 
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         fontFamily: "Roboto",
-        useMaterial3: false,
+        useMaterial3: false, // Mantieni false se preferisci lo stile classico
       ),
       home: const SplashScreen(),
     );
