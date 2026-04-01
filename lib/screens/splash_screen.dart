@@ -46,20 +46,21 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      // Avvolgiamo il contenuto nel SafeArea per rispettare i bordi dell'iPhone
       body: SafeArea( 
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // LOGO VERTICALE (Ridotto leggermente)
+            // Spazio flessibile superiore (3 parti) per alzare il logo
+            const Spacer(flex: 3),
+
+            // LOGO VERTICALE (Rimpicciolito a 80)
             Center(
               child: Image.asset(
                 'assets/images/logo_vertical.png',
-                height: 100, 
+                height: 80, 
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 30),
 
             // BARRA DI CARICAMENTO
             Padding(
@@ -71,6 +72,9 @@ class _SplashScreenState extends State<SplashScreen>
                 minHeight: 2,
               ),
             ),
+
+            // Spazio flessibile inferiore (4 parti) per bilanciare verso l'alto
+            const Spacer(flex: 4),
           ],
         ),
       ),

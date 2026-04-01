@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -27,33 +24,52 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
   List<Map<String, dynamic>> scalettaFiltrata = [];
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController(); 
+  
   bool _staCercando = false;
-
   bool modalitaSelezione = false;
   Set<int> selezionati = {};
+
+  final List<String> alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  String letteraAttiva = "";
 
   @override
   void initState() {
     super.initState();
     _caricaListe();
+    _scrollController.addListener(_aggiornaLetteraSuScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  String _pulisciPerPdf(String testo) {
-    return testo
-        .replaceAll('’', "'")
-        .replaceAll('‘', "'")
-        .replaceAll('“', '"')
-        .replaceAll('”', '"')
-        .replaceAll('–', '-')
-        .replaceAll('—', '-')
-        .replaceAll('\r', '')
-        .replaceAll(RegExp(r'[^\x00-\x7F]'), ' ');
+  void _aggiornaLetteraSuScroll() {
+    if (scalettaFiltrata.isEmpty) return;
+    double offset = _scrollController.offset;
+    int index = (offset / 72).floor(); 
+    if (index >= 0 && index < scalettaFiltrata.length) {
+      String primaLettera = scalettaFiltrata[index]["titolo"][0].toUpperCase();
+      if (alfabeto.contains(primaLettera) && letteraAttiva != primaLettera) {
+        setState(() {
+          letteraAttiva = primaLettera;
+        });
+      }
+    }
+  }
+
+  void _saltaALettera(String lettera) {
+    int index = scalettaFiltrata.indexWhere((b) => b["titolo"].toString().toUpperCase().startsWith(lettera));
+    if (index != -1) {
+      _scrollController.animateTo(
+        index * 72.0, 
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _caricaListe() async {
@@ -82,8 +98,12 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
       eliminati = listaEliminati.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
 
-      _ordinaEAggiorna();
-      _resetRicerca();
+      scaletta.sort((a, b) =>
+          (a["titolo"] as String).toLowerCase().compareTo((b["titolo"] as String).toLowerCase()));
+      
+      scalettaFiltrata = List.from(scaletta);
+      _searchController.clear();
+      _staCercando = false;
     });
   }
 
@@ -91,6 +111,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     setState(() {
       scaletta.sort((a, b) =>
           (a["titolo"] as String).toLowerCase().compareTo((b["titolo"] as String).toLowerCase()));
+      scalettaFiltrata = List.from(scaletta);
     });
   }
 
@@ -127,6 +148,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
       final prefs = await SharedPreferences.getInstance();
       final List<String> stringListScaletta = scaletta.map((e) => jsonEncode(e)).toList();
       final List<String> stringListEliminati = eliminati.map((e) => jsonEncode(e)).toList();
+      
       await prefs.setStringList("scaletta", stringListScaletta);
       await prefs.setStringList("eliminati", stringListEliminati);
     } catch (e) {
@@ -137,7 +159,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   Future<void> _eliminaBrano(int indexFiltrato) async {
     final brano = scalettaFiltrata[indexFiltrato];
     setState(() {
-      scaletta.removeWhere((element) => element == brano);
+      scaletta.remove(brano); 
       scalettaFiltrata.removeAt(indexFiltrato);
       eliminati.add(brano);
     });
@@ -174,15 +196,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               _condividiBraniJson(braniScelti);
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
-            title: const Text("Formato PDF (Tutti i brani)", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("Crea un unico documento con i brani scelti", style: TextStyle(color: Colors.grey, fontSize: 12)),
-            onTap: () {
-              Navigator.pop(context);
-              _condividiBraniPdf(braniScelti);
-            },
-          ),
           const SizedBox(height: 20),
         ],
       ),
@@ -200,75 +213,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     } catch (e) {
       debugPrint("Errore esportazione JSON: $e");
     }
-  }
-
-  Future<void> _condividiBraniPdf(List<Map<String, dynamic>> brani) async {
-    final pdf = pw.Document();
-    final fontRegular = pw.Font.courier();
-    final fontBold = pw.Font.courierBold();
-
-    for (var brano in brani) {
-      final String titolo = _pulisciPerPdf(brano["titolo"].toString().toUpperCase());
-      final String artista = _pulisciPerPdf(brano["artista"].toString());
-      
-      pdf.addPage(pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-        build: (pw.Context context) {
-          List<pw.Widget> widgets = [
-            pw.Text(titolo, style: pw.TextStyle(fontSize: 20, font: fontBold, fontWeight: pw.FontWeight.bold)),
-            pw.Text(artista, style: pw.TextStyle(fontSize: 14, color: PdfColors.grey700, font: fontRegular)),
-            pw.SizedBox(height: 5),
-            pw.Divider(thickness: 1.5, color: PdfColors.black),
-            pw.SizedBox(height: 20),
-          ];
-
-          if (brano["righe"] != null && brano["righe"] is List) {
-            List<dynamic> righeBrano = brano["righe"];
-            for (var riga in righeBrano) {
-              String acc = riga["accordi"] ?? "";
-              String txt = riga["testo"] ?? "";
-
-              if (acc.trim().isNotEmpty) {
-                widgets.add(pw.Text(_pulisciPerPdf(acc),
-                    style: pw.TextStyle(fontSize: 11, font: fontBold, color: PdfColors.blue800)));
-              }
-              if (txt.trim().isNotEmpty || (acc.isEmpty && txt.isEmpty)) {
-                widgets.add(pw.Padding(
-                  padding: const pw.EdgeInsets.only(bottom: 4),
-                  child: pw.Text(_pulisciPerPdf(txt), style: pw.TextStyle(fontSize: 10, font: fontRegular)),
-                ));
-              } else {
-                widgets.add(pw.SizedBox(height: 2));
-              }
-            }
-          } else {
-            List<String> righeLegacy = brano["testo"].toString().split('\n');
-            for (var riga in righeLegacy) {
-              bool eAccordo = riga.contains('[AC]');
-              String rigaPulita = _pulisciPerPdf(riga.replaceAll('[AC]', ''));
-              if (rigaPulita.trim().isEmpty && !eAccordo) {
-                widgets.add(pw.SizedBox(height: 12));
-                continue;
-              }
-              widgets.add(pw.Padding(
-                padding: pw.EdgeInsets.only(bottom: eAccordo ? 0 : 2),
-                child: pw.Text(rigaPulita,
-                    style: pw.TextStyle(
-                      fontSize: eAccordo ? 11 : 10,
-                      font: eAccordo ? fontBold : fontRegular,
-                      color: eAccordo ? PdfColors.blue800 : PdfColors.black,
-                    )),
-              ));
-            }
-          }
-          return widgets;
-        },
-      ));
-    }
-
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'spartito_mysongbook.pdf');
-    _resetRicerca();
   }
 
   void _mostraDialogImporta() {
@@ -390,7 +334,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // APP BAR NERA
           Container(
             color: Colors.black,
             child: SafeArea(
@@ -398,38 +341,16 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               child: Container(
                 height: 70,
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 4), // Ridotto padding laterale fascia
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
                   children: [
-                    // Tasto Importa (Icona corretta: Freccia verso il basso)
                     modalitaSelezione 
                       ? IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 26), onPressed: () => setState(() => _resetRicerca()))
                       : IconButton(icon: const Icon(Icons.file_download, color: Colors.white, size: 26), onPressed: _mostraDialogImporta),
                     
-                    // Barra di ricerca (Più compatta)
-                    Expanded(
-                      child: Container(
-                        height: 36, // Altezza ridotta
-                        margin: const EdgeInsets.symmetric(horizontal: 4), // Margine ridotto
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF333333),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.white, width: 1),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: _eseguiRicerca,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          decoration: const InputDecoration(
-                            hintText: "Cerca...",
-                            hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            prefixIcon: Icon(Icons.search, color: Colors.grey, size: 18),
-                          ),
-                        ),
-                      ),
-                    ),
+                    const Spacer(),
+                    const Text("SCALETTA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Spacer(),
                     
                     if (modalitaSelezione)
                       IconButton(
@@ -448,7 +369,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             ),
           ),
 
-          // SOTTOMENU
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -479,66 +399,119 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             ),
           ),
 
-          // LISTA
-          Expanded(
-            child: ListView.builder(
-              itemCount: scalettaFiltrata.length,
-              itemBuilder: (context, index) {
-                final brano = scalettaFiltrata[index];
-                final isSelezionato = selezionati.contains(index);
-
-                return Dismissible(
-                  key: UniqueKey(),
-                  direction: modalitaSelezione ? DismissDirection.none : DismissDirection.horizontal,
-                  background: Container(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.only(left: 20),
-                    color: Colors.amber.shade700,
-                    child: const Row(children: [Icon(Icons.check_circle_outline, color: Colors.black), SizedBox(width: 8), Text("SELEZIONA", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))]),
-                  ),
-                  secondaryBackground: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: Colors.red,
-                    child: const Text("ELIMINA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.startToEnd) {
-                      setState(() { modalitaSelezione = true; selezionati.add(index); });
-                      return false;
-                    } else {
-                      await _eliminaBrano(index);
-                      return true;
-                    }
-                  },
-                  child: ListTile(
-                    selected: isSelezionato,
-                    leading: modalitaSelezione 
-                      ? Checkbox(value: isSelezionato, activeColor: Colors.amber, checkColor: Colors.black, onChanged: (v) => setState(() => v! ? selezionati.add(index) : selezionati.remove(index)))
-                      : CircleAvatar(
-                          backgroundColor: Colors.amber,
-                          child: Text((scaletta.indexOf(brano) + 1).toString().padLeft(2, "0"), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                    title: Text(brano["titolo"], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text(brano["artista"], style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    onLongPress: () => _mostraDialogRinomina(index),
-                    onTap: () {
-                      if (modalitaSelezione) {
-                        setState(() => isSelezionato ? selezionati.remove(index) : selezionati.add(index));
-                      } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => LetturaSpartitoScreen(
-                          titolo: brano["titolo"], artista: brano["artista"],
-                          testoCompleto: brano["testo"], trasposizione: brano["trasposizione"],
-                        ))).then((_) => _caricaListe());
-                      }
-                    },
-                  ),
-                );
-              },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white54, width: 1.5),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _eseguiRicerca,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: const InputDecoration(
+                  hintText: "Cerca una canzone o un artista....",
+                  hintStyle: TextStyle(color: Colors.white38, fontSize: 15),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                ),
+              ),
             ),
           ),
 
-          // BARRA ELIMINATI
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: scalettaFiltrata.length,
+                    itemBuilder: (context, index) {
+                      final brano = scalettaFiltrata[index];
+                      final isSelezionato = selezionati.contains(index);
+
+                      return Dismissible(
+                        key: ObjectKey(brano), 
+                        direction: modalitaSelezione ? DismissDirection.none : DismissDirection.horizontal,
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 20),
+                          color: Colors.amber.shade700,
+                          child: const Row(children: [Icon(Icons.check_circle_outline, color: Colors.black), SizedBox(width: 8), Text("SELEZIONA", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))]),
+                        ),
+                        secondaryBackground: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: Colors.red,
+                          child: const Text("ELIMINA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.startToEnd) {
+                            setState(() { modalitaSelezione = true; selezionati.add(index); });
+                            return false;
+                          } else {
+                            await _eliminaBrano(index);
+                            return true;
+                          }
+                        },
+                        child: ListTile(
+                          selected: isSelezionato,
+                          leading: modalitaSelezione 
+                            ? Checkbox(value: isSelezionato, activeColor: Colors.amber, checkColor: Colors.black, onChanged: (v) => setState(() => v! ? selezionati.add(index) : selezionati.remove(index)))
+                            : CircleAvatar(
+                                backgroundColor: Colors.amber,
+                                child: Text((scaletta.indexOf(brano) + 1).toString().padLeft(2, "0"), style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                          title: Text(brano["titolo"], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text(brano["artista"], style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          onLongPress: () => _mostraDialogRinomina(index),
+                          onTap: () {
+                            if (modalitaSelezione) {
+                              setState(() => isSelezionato ? selezionati.remove(index) : selezionati.add(index));
+                            } else {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => LetturaSpartitoScreen(
+                                titolo: brano["titolo"], artista: brano["artista"],
+                                testoCompleto: brano["testo"], trasposizione: brano["trasposizione"],
+                              ))).then((_) => _caricaListe());
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                Container(
+                  width: 32,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: alfabeto.map((l) {
+                        bool isAttiva = letteraAttiva == l;
+                        return GestureDetector(
+                          onTap: () => _saltaALettera(l),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2.5),
+                            child: Text(
+                              l,
+                              style: TextStyle(
+                                color: isAttiva ? Colors.amber : Colors.white,
+                                fontWeight: isAttiva ? FontWeight.bold : FontWeight.normal,
+                                fontSize: isAttiva ? 16 : 12,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           GestureDetector(
             onTap: eliminati.isEmpty ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EliminatiScreen())).then((_) { if (mounted) _caricaListe(); }),
             child: Container(
@@ -548,7 +521,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text("ELIMINATI: ${eliminati.length}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text("ELIMINATI: ${eliminati.length}", style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                 ),
               ),
             ),

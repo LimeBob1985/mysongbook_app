@@ -41,27 +41,30 @@ class _BozzeScreenState extends State<BozzeScreen> {
     });
   }
 
-  // --- LOGICA DI ELIMINAZIONE AGGIORNATA PER PERSISTENZA IPHONE ---
+  // --- LOGICA DI ELIMINAZIONE AGGIORNATA PER RECUPERO INTELLIGENTE ---
   Future<void> _eliminaBozza(int indexFiltrato) async {
     try {
-      final bozza = bozzeFiltrate[indexFiltrato];
+      final bozza = Map<String, dynamic>.from(bozzeFiltrate[indexFiltrato]);
       final prefs = await SharedPreferences.getInstance();
       
-      // Carica eliminati esistenti per non sovrascriverli
+      // Carica eliminati esistenti
       final listaEliminati = prefs.getStringList("eliminati") ?? [];
       List<Map<String, dynamic>> eliminati = listaEliminati.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
 
+      // AGGIUNTA TAG: Marciamo l'elemento come bozza prima di spostarlo negli eliminati
+      bozza["isBozza"] = true;
+
       setState(() {
-        bozze.removeWhere((element) => element == bozza);
+        bozze.removeWhere((element) => element["titolo"] == bozza["titolo"] && element["artista"] == bozza["artista"]);
         bozzeFiltrate.removeAt(indexFiltrato);
         eliminati.add(bozza);
       });
 
-      // Operazioni di salvataggio con await obbligatorio per iOS
+      // Salvataggio con await obbligatorio
       await prefs.setStringList("bozze", bozze.map((e) => jsonEncode(e)).toList());
       await prefs.setStringList("eliminati", eliminati.map((e) => jsonEncode(e)).toList());
       
-      debugPrint("Bozze ed Eliminati aggiornati correttamente su disco.");
+      debugPrint("Bozza marcata e spostata negli Eliminati.");
     } catch (e) {
       debugPrint("Errore durante l'eliminazione della bozza: $e");
     }
@@ -73,7 +76,7 @@ class _BozzeScreenState extends State<BozzeScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // HEADER CON SCRITTA FISSA (Incluso in SafeArea per iOS)
+          // HEADER CON SCRITTA FISSA
           Container(
             color: Colors.black,
             child: SafeArea(

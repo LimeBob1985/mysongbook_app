@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../utils/chord_utils.dart';
 import '../services/chord_transposer.dart';
 
-// --- CONTROLLER PER IL GRASSETTO (DAL FILE COMPONI) ---
+// ... (Classe BoldTextEditingController resta invariata)
 class BoldTextEditingController extends TextEditingController {
   static const String boldTag = '\u200D';
 
@@ -65,6 +68,11 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     _caricaDati();
   }
 
+  // ... (Metodi _caricaDati, _assicuraOriginalChord, _calcolaPreferenzaBemolli, 
+  // _generaStrutturaDaTesto, _impaginaTesto, _applicaGrassetto, _cancellaSelezione, 
+  // _inserisciRiga, _mostraMenuSpaziatura, _tileOpzioneMini, _eliminaRiga, 
+  // _salvaModifiche, _trasponi rimangono IDENTICI)
+
   Future<void> _caricaDati() async {
     final prefs = await SharedPreferences.getInstance();
     final scalettaStr = prefs.getStringList("scaletta") ?? [];
@@ -112,6 +120,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           if (acc['originalChord'] == null) {
             acc['originalChord'] = acc['text'];
           }
+          if (acc['fontSize'] == null) acc['fontSize'] = 16.0;
         }
       }
     }
@@ -147,7 +156,8 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           accordiList.add({
             'originalChord': chord,
             'text': chord,
-            'x': m.start * 10.6
+            'x': m.start * 10.6,
+            'fontSize': 16.0,
           });
         }
       }
@@ -244,7 +254,6 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
                 child: Text("COSA E DOVE INSERIRE?", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
               ),
               const Divider(color: Colors.white12),
-              
               const Text("INSERISCI SOPRA", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -254,10 +263,8 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
                   _tileOpzioneMini("Vuota", Icons.space_bar, Colors.grey, () => _inserisciRiga(indexInStruttura, 'vuota')),
                 ],
               ),
-              
               const SizedBox(height: 15),
               const Divider(color: Colors.white12),
-              
               const Text("INSERISCI SOTTO", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -356,6 +363,103 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     });
   }
 
+  // --- NUOVA LOGICA ESPORTAZIONE PDF ---
+  Future<void> _avviaEsportazionePdf() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Generazione PDF in corso...")),
+    );
+
+    try {
+      final doc = await _generaDocumentoPdf();
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => doc.save(),
+        name: '${widget.titolo}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Errore durante l'esportazione: $e")),
+        );
+      }
+    }
+  }
+
+  Future<pw.Document> _generaDocumentoPdf() async {
+    final pdf = pw.Document();
+    final font = await PdfGoogleFonts.robotoMonoRegular();
+    final fontBold = await PdfGoogleFonts.robotoMonoBold();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(30),
+        build: (pw.Context context) {
+          return [
+            pw.Header(
+              level: 0,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(widget.titolo.toUpperCase(), style: pw.TextStyle(font: fontBold, fontSize: 18)),
+                  pw.Text(widget.artista, style: pw.TextStyle(font: font, fontSize: 12, color: PdfColors.grey700)),
+                  pw.SizedBox(height: 20),
+                ],
+              ),
+            ),
+            ..._strutturaCompleta.map((riga) {
+              if (riga['tipo'] == 'accordi') {
+                return pw.Container(
+                  height: 20,
+                  child: pw.Stack(
+                    children: (riga['accordi'] as List).map((acc) {
+                      return pw.Positioned(
+                        left: (acc['x'] as num).toDouble() * 0.85, // Rapporto scala PDF
+                        child: pw.Text(
+                          acc['text'],
+                          style: pw.TextStyle(font: fontBold, fontSize: (acc['fontSize'] ?? 16.0) - 2, color: PdfColors.blue900),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              } else if (riga['tipo'] == 'testo') {
+                final String testo = riga['controller'] != null ? riga['controller'].text : riga['testo'];
+                final List<pw.TextSpan> spans = [];
+                final regex = RegExp(r'(\u200D.*?\u200D|[^\u200D]+)');
+                final matches = regex.allMatches(testo);
+
+                for (final match in matches) {
+                  final part = match.group(0)!;
+                  if (part.startsWith(boldTag) && part.endsWith(boldTag)) {
+                    spans.add(pw.TextSpan(
+                      text: part.replaceAll(boldTag, ''),
+                      style: pw.TextStyle(font: fontBold, fontWeight: pw.FontWeight.bold),
+                    ));
+                  } else {
+                    spans.add(pw.TextSpan(text: part));
+                  }
+                }
+
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 2),
+                  child: pw.RichText(
+                    text: pw.TextSpan(
+                      style: pw.TextStyle(font: font, fontSize: 14, color: PdfColors.black),
+                      children: spans,
+                    ),
+                  ),
+                );
+              } else {
+                return pw.SizedBox(height: 15);
+              }
+            }).toList(),
+          ];
+        },
+      ),
+    );
+    return pdf;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_initialized) return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -383,26 +487,35 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     return AppBar(
       backgroundColor: _isEditing ? const Color(0xFF1A237E) : Colors.black,
       elevation: 0,
-      title: Column(
-        children: [
-          Text(widget.titolo.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-          Text(widget.artista, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-        ],
+      title: GestureDetector(
+        onLongPress: () {
+          if (!_isEditing) {
+            setState(() => _isEditing = true);
+          }
+        },
+        child: Column(
+          children: [
+            Text(widget.titolo.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(widget.artista, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ],
+        ),
       ),
       centerTitle: true,
       leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
       actions: [
-        IconButton(
-          icon: Icon(
-            _isEditing ? Icons.check : Icons.edit,
-            color: _isEditing ? Colors.greenAccent : Colors.white,
-            size: _isEditing ? 28 : 24,
+        if (!_isEditing)
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: _avviaEsportazionePdf,
           ),
-          onPressed: () {
-            if (_isEditing) _salvaModifiche();
-            setState(() => _isEditing = !_isEditing);
-          },
-        ),
+        if (_isEditing)
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.greenAccent, size: 28),
+            onPressed: () {
+              _salvaModifiche();
+              setState(() => _isEditing = false);
+            },
+          ),
       ],
     );
   }
@@ -615,6 +728,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 }
 
+// ... (Classe ChordRow e i suoi metodi rimangono IDENTICI)
 class ChordRow extends StatelessWidget {
   final List<dynamic> accordi;
   final bool isEditing;
@@ -652,25 +766,27 @@ class ChordRow extends StatelessWidget {
             final a = entry.value;
             return Positioned(
               left: (a['x'] as num).toDouble(),
+              bottom: 0, // <--- ANCORATO ALLA BASE
               child: GestureDetector(
                 onHorizontalDragUpdate: isEditing ? (d) => _sposta(idx, d.delta.dx) : null,
                 onTap: isEditing ? () => _modificaAccordo(context, idx) : null,
                 onLongPress: isEditing ? () => _mostraOpzioniAccordo(context, idx) : null,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: isEditing ? BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.blue, width: 1),
+                    color: Colors.white.withValues(alpha: 0.8),
+                    border: Border.all(color: Colors.blue, width: 0.5),
                     borderRadius: BorderRadius.circular(4)
                   ) : null,
+                  alignment: Alignment.bottomCenter, // <--- TESTO IN BASSO
                   child: Text(
                     a['text'],
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: (a['fontSize'] ?? 16.0).toDouble(),
                       fontWeight: FontWeight.bold,
                       color: isEditing ? Colors.blue[900] : Colors.blue[700],
                       fontFamily: 'monospace',
-                      letterSpacing: 0,
+                      height: 1.0, // <--- RIMUOVE SPAZIATURE EXTRA
                     ),
                   ),
                 ),
@@ -689,10 +805,18 @@ class ChordRow extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.edit, color: Colors.blue),
-            title: const Text("Modifica Accordo"),
+            title: const Text("Modifica Testo"),
             onTap: () {
               Navigator.pop(ctx);
               _modificaAccordo(context, index);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_size, color: Colors.orange),
+            title: const Text("Ridimensiona"),
+            onTap: () {
+              Navigator.pop(ctx);
+              _mostraDialogRidimensiona(context, index);
             },
           ),
           ListTile(
@@ -704,6 +828,61 @@ class ChordRow extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  void _mostraDialogRidimensiona(BuildContext context, int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setLocalState) => AlertDialog(
+          title: const Text("Dimensioni Accordo", style: TextStyle(fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, size: 30),
+                    onPressed: () {
+                      setLocalState(() {
+                        accordi[index]['fontSize'] = (accordi[index]['fontSize'] ?? 16.0) - 1;
+                      });
+                      onChanged(); // <--- LIVE PREVIEW
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      (accordi[index]['fontSize'] ?? 16.0).toInt().toString(),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, size: 30),
+                    onPressed: () {
+                      setLocalState(() {
+                        accordi[index]['fontSize'] = (accordi[index]['fontSize'] ?? 16.0) + 1;
+                      });
+                      onChanged(); // <--- LIVE PREVIEW
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text("Anteprima in diretta attiva", style: TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("CHIUDI", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -743,7 +922,8 @@ class ChordRow extends StatelessWidget {
       accordi.add({
         'text': nuovo,
         'originalChord': original,
-        'x': dx
+        'x': dx,
+        'fontSize': 16.0,
       });
       onChanged();
     }

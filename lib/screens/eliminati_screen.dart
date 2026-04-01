@@ -35,6 +35,7 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     });
   }
 
+  // LOGICA RIPRISTINO INTELLIGENTE: distingue tra Bozza e Scaletta
   Future<void> _ripristinaBrano(int index) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -44,29 +45,33 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
         eliminati.removeAt(index);
       });
 
-      List<Map<String, dynamic>> scaletta = [];
-      final listaScaletta = prefs.getStringList("scaletta") ?? [];
+      // Controllo se è una bozza o un brano definitivo
+      bool eUnaBozza = brano["isBozza"] == true;
+      String chiaveDestinazione = eUnaBozza ? "bozze" : "scaletta";
 
-      scaletta =
-          listaScaletta.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+      final listaDestinazione = prefs.getStringList(chiaveDestinazione) ?? [];
+      List<Map<String, dynamic>> listaRecuperata =
+          listaDestinazione.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
 
-      scaletta.add(brano);
+      listaRecuperata.add(brano);
 
-      scaletta.sort((a, b) =>
+      // Ordinamento alfabetico della lista di destinazione
+      listaRecuperata.sort((a, b) =>
           (a["titolo"] ?? "").toString().compareTo((b["titolo"] ?? "").toString()));
 
-      // Scrittura forzata su disco per iOS
+      // Scrittura forzata su disco per la lista di destinazione (Bozze o Scaletta)
       await prefs.setStringList(
-        "scaletta",
-        scaletta.map((e) => jsonEncode(e)).toList(),
+        chiaveDestinazione,
+        listaRecuperata.map((e) => jsonEncode(e)).toList(),
       );
 
+      // Aggiornamento lista Eliminati su disco
       await prefs.setStringList(
         "eliminati",
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
       
-      debugPrint("Brano ripristinato e salvato su disco.");
+      debugPrint("Brano ripristinato correttamente in: $chiaveDestinazione");
     } catch (e) {
       debugPrint("Errore ripristino: $e");
     }

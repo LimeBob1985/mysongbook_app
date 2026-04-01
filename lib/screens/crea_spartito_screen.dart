@@ -190,16 +190,24 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
 
           const SizedBox(height: 20),
 
-          // TITOLO + ARTISTA
+          // TITOLO + ARTISTA (CENTRATI)
           if (titolo.isNotEmpty)
-            Text(
-              titolo,
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                titolo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
             ),
           if (artista.isNotEmpty)
-            Text(
-              artista,
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                artista,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+              ),
             ),
 
           const Spacer(),
