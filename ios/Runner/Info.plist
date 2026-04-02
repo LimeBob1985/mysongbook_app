@@ -116,5 +116,12 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>MySongBook usa la rete locale per scambiare brani con altri dispositivi vicini.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_mysongbook._tcp</string>
+    </array>
 </dict>
 </plist>

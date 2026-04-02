@@ -7,7 +7,6 @@ import 'package:printing/printing.dart';
 import '../utils/chord_utils.dart';
 import '../services/chord_transposer.dart';
 
-// ... (Classe BoldTextEditingController resta invariata)
 class BoldTextEditingController extends TextEditingController {
   static const String boldTag = '\u200D';
 
@@ -59,6 +58,9 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   bool _initialized = false;
   late bool _preferFlats;
 
+  // Lista per gestire lo storico dell'Undo
+  final List<String> _undoHistory = [];
+
   static const String boldTag = '\u200D';
 
   @override
@@ -68,10 +70,39 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     _caricaDati();
   }
 
-  // ... (Metodi _caricaDati, _assicuraOriginalChord, _calcolaPreferenzaBemolli, 
-  // _generaStrutturaDaTesto, _impaginaTesto, _applicaGrassetto, _cancellaSelezione, 
-  // _inserisciRiga, _mostraMenuSpaziatura, _tileOpzioneMini, _eliminaRiga, 
-  // _salvaModifiche, _trasponi rimangono IDENTICI)
+  // --- LOGICA UNDO ---
+  void _saveSnapshot() {
+    // Salviamo lo stato corrente della struttura in formato JSON per l'undo
+    final snapshot = jsonEncode(_strutturaCompleta.map((r) => {
+      'tipo': r['tipo'],
+      'testo': r['tipo'] == 'testo' && r['controller'] != null ? r['controller'].text : r['testo'],
+      'accordi': r['accordi'],
+    }).toList());
+    
+    if (_undoHistory.isEmpty || _undoHistory.last != snapshot) {
+      _undoHistory.add(snapshot);
+      if (_undoHistory.length > 30) _undoHistory.removeAt(0); // Limite storico
+    }
+  }
+
+  void _undo() {
+    if (_undoHistory.isEmpty) return;
+    
+    final lastState = jsonDecode(_undoHistory.removeLast());
+    setState(() {
+      _strutturaCompleta = lastState.map<Map<String, dynamic>>((r) {
+        return {
+          'tipo': r['tipo'],
+          'testo': r['testo'] ?? "",
+          'accordi': r['accordi'] ?? [],
+          'controller': r['tipo'] == 'testo' 
+              ? (BoldTextEditingController()..text = r['testo'] ?? "") 
+              : null,
+        };
+      }).toList();
+      _impaginaTesto();
+    });
+  }
 
   Future<void> _caricaDati() async {
     final prefs = await SharedPreferences.getInstance();
@@ -197,6 +228,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 
   void _applicaGrassetto(TextEditingController controller) {
+    _saveSnapshot();
     final selection = controller.selection;
     if (!selection.isValid || selection.isCollapsed) return;
     final text = controller.text;
@@ -215,6 +247,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 
   void _cancellaSelezione(TextEditingController controller) {
+    _saveSnapshot();
     final selection = controller.selection;
     if (!selection.isValid || selection.isCollapsed) return;
     final newText = controller.text.replaceRange(selection.start, selection.end, '');
@@ -225,6 +258,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 
   void _inserisciRiga(int index, String tipo) {
+    _saveSnapshot();
     setState(() {
       Map<String, dynamic> nuovaRiga = {
         'tipo': tipo,
@@ -303,6 +337,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
 
   void _eliminaRiga(int indexInStruttura) {
     if (_strutturaCompleta.length <= 1) return;
+    _saveSnapshot();
     setState(() {
       _strutturaCompleta.removeAt(indexInStruttura);
       _impaginaTesto();
@@ -347,6 +382,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 
   void _trasponi(int semitoni) {
+    _saveSnapshot();
     setState(() {
       _trasposizione += semitoni;
       for (var riga in _strutturaCompleta) {
@@ -363,7 +399,6 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     });
   }
 
-  // --- NUOVA LOGICA ESPORTAZIONE PDF ---
   Future<void> _avviaEsportazionePdf() async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Generazione PDF in corso...")),
@@ -413,7 +448,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
                   child: pw.Stack(
                     children: (riga['accordi'] as List).map((acc) {
                       return pw.Positioned(
-                        left: (acc['x'] as num).toDouble() * 0.85, // Rapporto scala PDF
+                        left: (acc['x'] as num).toDouble() * 0.85, 
                         child: pw.Text(
                           acc['text'],
                           style: pw.TextStyle(font: fontBold, fontSize: (acc['fontSize'] ?? 16.0) - 2, color: PdfColors.blue900),
@@ -472,6 +507,8 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           Expanded(
             child: PageView.builder(
               controller: _pageController,
+              // BLOCCO SWIPE IN MODALITA MODIFICA
+              physics: _isEditing ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics(),
               itemCount: _pagine.length,
               itemBuilder: (context, pIdx) => _buildPagina(pIdx),
             ),
@@ -501,21 +538,48 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
         ),
       ),
       centerTitle: true,
-      leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      leadingWidth: _isEditing ? 90 : null,
+      leading: _isEditing 
+        ? Row(
+            children: [
+              IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+              IconButton(
+                icon: const Icon(Icons.undo, color: Colors.orangeAccent), 
+                onPressed: _undoHistory.isNotEmpty ? _undo : null,
+              ),
+            ],
+          )
+        : IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
       actions: [
         if (!_isEditing)
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
             onPressed: _avviaEsportazionePdf,
           ),
-        if (_isEditing)
+        if (_isEditing) ...[
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white, size: 30),
+            onPressed: () {
+              _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 30),
+            onPressed: () {
+              _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.check, color: Colors.greenAccent, size: 28),
             onPressed: () {
               _salvaModifiche();
-              setState(() => _isEditing = false);
+              setState(() {
+                _isEditing = false;
+                _undoHistory.clear();
+              });
             },
           ),
+        ]
       ],
     );
   }
@@ -557,7 +621,10 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
                 ? ChordRow(
                     accordi: riga['accordi'],
                     isEditing: _isEditing,
-                    onChanged: () => setState(() {}),
+                    onChanged: () {
+                      _saveSnapshot();
+                      setState(() {});
+                    },
                     currentTranspose: _trasposizione,
                     preferFlats: _preferFlats,
                   )
@@ -610,6 +677,10 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           isDense: true, 
           contentPadding: const EdgeInsets.symmetric(vertical: 8)
         ),
+        onChanged: (val) {
+          // Nota: lo snapshot qui potrebbe essere troppo frequente. 
+          // Idealmente lo snapshot si fa all'inizio del focus o azioni discrete.
+        },
         contextMenuBuilder: (context, editableTextState) {
           return TextSelectionToolbar(
             anchorAbove: editableTextState.contextMenuAnchors.primaryAnchor,
@@ -632,7 +703,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
                     _toolbarButton('GRASSETTO', () {
                       _applicaGrassetto(riga['controller']);
                       editableTextState.hideToolbar();
-                    }, isBold: true),
+                    }),
                   ],
                 ),
               ),
@@ -728,7 +799,6 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   }
 }
 
-// ... (Classe ChordRow e i suoi metodi rimangono IDENTICI)
 class ChordRow extends StatelessWidget {
   final List<dynamic> accordi;
   final bool isEditing;
@@ -766,7 +836,7 @@ class ChordRow extends StatelessWidget {
             final a = entry.value;
             return Positioned(
               left: (a['x'] as num).toDouble(),
-              bottom: 0, // <--- ANCORATO ALLA BASE
+              bottom: 0, 
               child: GestureDetector(
                 onHorizontalDragUpdate: isEditing ? (d) => _sposta(idx, d.delta.dx) : null,
                 onTap: isEditing ? () => _modificaAccordo(context, idx) : null,
@@ -778,7 +848,7 @@ class ChordRow extends StatelessWidget {
                     border: Border.all(color: Colors.blue, width: 0.5),
                     borderRadius: BorderRadius.circular(4)
                   ) : null,
-                  alignment: Alignment.bottomCenter, // <--- TESTO IN BASSO
+                  alignment: Alignment.bottomCenter,
                   child: Text(
                     a['text'],
                     style: TextStyle(
@@ -786,7 +856,7 @@ class ChordRow extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: isEditing ? Colors.blue[900] : Colors.blue[700],
                       fontFamily: 'monospace',
-                      height: 1.0, // <--- RIMUOVE SPAZIATURE EXTRA
+                      height: 1.0,
                     ),
                   ),
                 ),
@@ -850,7 +920,7 @@ class ChordRow extends StatelessWidget {
                       setLocalState(() {
                         accordi[index]['fontSize'] = (accordi[index]['fontSize'] ?? 16.0) - 1;
                       });
-                      onChanged(); // <--- LIVE PREVIEW
+                      onChanged(); 
                     },
                   ),
                   Padding(
@@ -866,7 +936,7 @@ class ChordRow extends StatelessWidget {
                       setLocalState(() {
                         accordi[index]['fontSize'] = (accordi[index]['fontSize'] ?? 16.0) + 1;
                       });
-                      onChanged(); // <--- LIVE PREVIEW
+                      onChanged();
                     },
                   ),
                 ],
@@ -899,92 +969,49 @@ class ChordRow extends StatelessWidget {
 
   Future<void> _modificaAccordo(BuildContext context, int index) async {
     final controller = TextEditingController(text: accordi[index]['text']);
-    final nuovo = await _mostraDialog(context, controller);
-    if (nuovo != null && nuovo.isNotEmpty) {
-      String original = currentTranspose == 0 
-          ? nuovo 
-          : ChordTransposer.transposeChord(nuovo, -currentTranspose, preferFlats);
-          
-      accordi[index]['text'] = nuovo;
-      accordi[index]['originalChord'] = original;
-      onChanged();
-    }
-  }
-
-  Future<void> _gestisciNuovoAccordo(BuildContext context, double dx) async {
-    final controller = TextEditingController();
-    final nuovo = await _mostraDialog(context, controller);
-    if (nuovo != null && nuovo.isNotEmpty) {
-      String original = currentTranspose == 0 
-          ? nuovo 
-          : ChordTransposer.transposeChord(nuovo, -currentTranspose, preferFlats);
-
-      accordi.add({
-        'text': nuovo,
-        'originalChord': original,
-        'x': dx,
-        'fontSize': 16.0,
-      });
-      onChanged();
-    }
-  }
-
-  Future<String?> _mostraDialog(BuildContext context, TextEditingController ctrl) {
-    return showDialog<String>(
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: const TextStyle(
-                      fontFamily: "monospace",
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.blue,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'DO#m7',
-                      hintStyle: TextStyle(color: Colors.black12),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                    onSubmitted: (val) => Navigator.pop(ctx, val.trim()),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-                  onPressed: () => ctrl.clear(),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.blue, thickness: 2),
-          ],
-        ),
+        title: const Text("Modifica Accordo"),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: "es. Do#m7")),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx), 
-            child: const Text("ANNULLA", style: TextStyle(color: Colors.black54, fontSize: 13))
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              elevation: 0,
-            ),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), 
-            child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold))
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("ANNULLA")),
+          TextButton(onPressed: () {
+            accordi[index]['text'] = controller.text;
+            accordi[index]['originalChord'] = ChordTransposer.transposeChord(
+              controller.text, 
+              -currentTranspose, 
+              preferFlats
+            );
+            onChanged();
+            Navigator.pop(ctx);
+          }, child: const Text("OK")),
+        ],
+      ),
+    );
+  }
+
+  void _gestisciNuovoAccordo(BuildContext context, double x) async {
+    final controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Nuovo Accordo"),
+        content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: "es. Re7")),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("ANNULLA")),
+          TextButton(onPressed: () {
+            if (controller.text.isNotEmpty) {
+              accordi.add({
+                'text': controller.text,
+                'originalChord': ChordTransposer.transposeChord(controller.text, -currentTranspose, preferFlats),
+                'x': x,
+                'fontSize': 16.0,
+              });
+              onChanged();
+            }
+            Navigator.pop(ctx);
+          }, child: const Text("AGGIUNGI")),
         ],
       ),
     );

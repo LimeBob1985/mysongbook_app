@@ -253,13 +253,27 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                           alignment: Alignment.centerLeft,
                           padding: const EdgeInsets.only(left: 20),
                           color: Colors.green,
-                          child: const Icon(Icons.settings_backup_restore, color: Colors.white),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.sentiment_satisfied_alt, color: Colors.white, size: 28),
+                              SizedBox(height: 4),
+                              Text("Ripristina", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                            ],
+                          ),
                         ),
                         secondaryBackground: Container(
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
                           color: Colors.red,
-                          child: const Icon(Icons.delete_forever, color: Colors.white),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.delete_forever, color: Colors.white, size: 28),
+                              SizedBox(height: 4),
+                              Text("Elimina", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                            ],
+                          ),
                         ),
                         confirmDismiss: (direction) async {
                           if (direction == DismissDirection.startToEnd) {

@@ -2,6 +2,10 @@
     package="com.example.my_song_book">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
         android:name="io.flutter.app.FlutterApplication"
@@ -26,12 +30,10 @@
 
         </activity>
 
-        <!-- Splash screen -->
         <meta-data
             android:name="io.flutter.embedding.android.SplashScreenDrawable"
             android:resource="@drawable/launch_background" />
 
-        <!-- Flutter engine -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

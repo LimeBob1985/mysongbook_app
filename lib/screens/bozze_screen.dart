@@ -180,7 +180,21 @@ class _BozzeScreenState extends State<BozzeScreen> {
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20),
                           color: Colors.red,
-                          child: const Text("ELIMINA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.delete_outline, color: Colors.white, size: 28),
+                              SizedBox(height: 4),
+                              Text(
+                                "Elimina", 
+                                style: TextStyle(
+                                  color: Colors.white, 
+                                  fontWeight: FontWeight.bold, 
+                                  fontSize: 12
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         onDismissed: (_) => _eliminaBozza(index),
                         child: ListTile(

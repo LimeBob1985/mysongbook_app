@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'screens/splash_screen.dart';
+import 'web_service.dart'; // Importa il motore di rete
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Avvia il servizio di scambio brani sulla rete locale
+  // Il nome "Musicista MySongBook" è quello che vedranno gli altri device
+  try {
+    await WebService().start("Musicista MySongBook");
+    print("Servizio di scambio brani avviato correttamente");
+  } catch (e) {
+    print("Errore durante l'avvio del WebService: $e");
+  }
 
   // ⚠️ Reset totale della scaletta rimosso per permettere il salvataggio dei brani
   // await ScalettaReset.reset();
