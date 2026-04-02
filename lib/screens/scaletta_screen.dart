@@ -206,7 +206,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     try {
       final String dati = jsonEncode(brani);
       final directory = await getTemporaryDirectory();
-      // Usiamo l'estensione personalizzata .mysongbook
       final String fileName = "export_${DateTime.now().millisecondsSinceEpoch}.mysongbook";
       final file = File('${directory.path}/$fileName');
       
@@ -253,7 +252,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 setState(() {
                   if (decoded is List) {
                     for (var b in decoded) {
-                      // Applichiamo la stessa pulizia dati del caricamento
                       final Map<String, dynamic> branoPulito = {
                         "titolo": b["titolo"] ?? b["title"] ?? "Senza Titolo",
                         "artista": b["artista"] ?? b["artist"] ?? "Artista Sconosciuto",
@@ -395,6 +393,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             ),
           ),
 
+          // SOTTOMENU CON ANIMAZIONI SLIDE
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -402,7 +401,24 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CreaSpartitoScreen())),
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const CreaSpartitoScreen(),
+                        transitionDuration: const Duration(milliseconds: 300),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(-1, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          );
+                        },
+                      ),
+                    );
+                  },
                   child: Text(
                     "crea spartito", 
                     style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)
@@ -415,7 +431,24 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 ),
                 const SizedBox(width: 24),
                 GestureDetector(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BozzeScreen())),
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const BozzeScreen(),
+                        transitionDuration: const Duration(milliseconds: 300),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          );
+                        },
+                      ),
+                    );
+                  },
                   child: Text(
                     "bozze", 
                     style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)

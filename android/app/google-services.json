@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "541290297717",
+    "project_id": "my-song-book-25285",
+    "storage_bucket": "my-song-book-25285.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:541290297717:android:6e350c47ce18eb2d257b3c",
+        "android_client_info": {
+          "package_name": "com.example.my_song_book"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClcDm1aqwpBK8yv1gj71ZvlnbxFy4gWQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

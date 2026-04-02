@@ -52,11 +52,11 @@ class _SplashScreenState extends State<SplashScreen>
             // Spazio flessibile superiore (3 parti) per alzare il logo
             const Spacer(flex: 3),
 
-            // LOGO VERTICALE (Rimpicciolito a 80)
+            // LOGO VERTICALE (Rimpicciolito ulteriormente a 65)
             Center(
               child: Image.asset(
                 'assets/images/logo_vertical.png',
-                height: 80, 
+                height: 65, 
               ),
             ),
 

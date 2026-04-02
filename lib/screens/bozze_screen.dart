@@ -57,12 +57,13 @@ class _BozzeScreenState extends State<BozzeScreen> {
       setState(() {
         bozze.removeWhere((element) => element["titolo"] == bozza["titolo"] && element["artista"] == bozza["artista"]);
         bozzeFiltrate.removeAt(indexFiltrato);
-        eliminati.add(bozza);
+        final stringaEliminato = jsonEncode(bozza);
+        listaEliminati.add(stringaEliminato);
       });
 
       // Salvataggio con await obbligatorio
       await prefs.setStringList("bozze", bozze.map((e) => jsonEncode(e)).toList());
-      await prefs.setStringList("eliminati", eliminati.map((e) => jsonEncode(e)).toList());
+      await prefs.setStringList("eliminati", listaEliminati);
       
       debugPrint("Bozza marcata e spostata negli Eliminati.");
     } catch (e) {
@@ -98,7 +99,7 @@ class _BozzeScreenState extends State<BozzeScreen> {
             ),
           ),
 
-          // MENU DI NAVIGAZIONE
+          // MENU DI NAVIGAZIONE CON ANIMAZIONI CORRETTE (VERSO SINISTRA)
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -108,7 +109,19 @@ class _BozzeScreenState extends State<BozzeScreen> {
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
                     context, 
-                    MaterialPageRoute(builder: (_) => const CreaSpartitoScreen())
+                    PageRouteBuilder(
+                      pageBuilder: (_, __, ___) => const CreaSpartitoScreen(),
+                      transitionDuration: const Duration(milliseconds: 300),
+                      transitionsBuilder: (_, animation, __, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(-1, 0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                          child: child,
+                        );
+                      },
+                    ),
                   ),
                   child: Text(
                     "crea spartito", 
@@ -119,7 +132,19 @@ class _BozzeScreenState extends State<BozzeScreen> {
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
                     context, 
-                    MaterialPageRoute(builder: (_) => const ScalettaScreen())
+                    PageRouteBuilder(
+                      pageBuilder: (_, __, ___) => const ScalettaScreen(),
+                      transitionDuration: const Duration(milliseconds: 300),
+                      transitionsBuilder: (_, animation, __, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(-1, 0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                          child: child,
+                        );
+                      },
+                    ),
                   ),
                   child: Text(
                     "scaletta", 

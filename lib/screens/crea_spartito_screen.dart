@@ -53,10 +53,10 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // LOGO ORIZZONTALE
+                    // LOGO ORIZZONTALE (Rimpicciolito a 28)
                     Image.asset(
                       "assets/images/logo_horizontal.png",
-                      height: 36,
+                      height: 28,
                     ),
                     // TASTO + A DESTRA NELLA STESSA FASCIA
                     Positioned(
@@ -77,7 +77,7 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
             ),
           ),
 
-          // SOTTOMENU (50px)
+          // SOTTOMENU (50px) con Animazioni Slide verso destra
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -93,8 +93,21 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const ScalettaScreen(),
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const ScalettaScreen(),
+                        transitionDuration: const Duration(milliseconds: 300),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
+                          );
+                        },
                       ),
                     );
                   },
@@ -111,8 +124,21 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const BozzeScreen(),
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const BozzeScreen(),
+                        transitionDuration: const Duration(milliseconds: 300),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
+                          );
+                        },
                       ),
                     );
                   },

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; 
 import 'screens/splash_screen.dart';
-// import 'tools/fix_reset_scaletta.dart'; // Mantieni se ti serve, altrimenti puoi rimuovere
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
