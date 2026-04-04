@@ -9,7 +9,8 @@ class FileStorageService {
   static Future<Directory> getFolder() async {
     if (_folder != null) return _folder!;
 
-    final baseDir = await getApplicationDocumentsDirectory();
+    // 🔥 CAMBIATO: ora usa la cartella SUPPORT, visibile nell’app File
+    final baseDir = await getApplicationSupportDirectory();
     final dir = Directory("${baseDir.path}/MySongBookScaletta");
 
     if (!await dir.exists()) {
@@ -38,6 +39,7 @@ class FileStorageService {
 
     try {
       await file.writeAsString(jsonEncode(song), flush: true);
+      print("🔥 Salvato file in: ${file.path}");
     } catch (e) {
       print("Errore salvataggio file $safeTitle: $e");
     }
