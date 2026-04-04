@@ -1,22 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; 
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 import 'screens/splash_screen.dart';
-import 'web_service.dart'; // Importa il motore di rete
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Avvia il servizio di scambio brani sulla rete locale
-  // Il nome "Musicista MySongBook" è quello che vedranno gli altri device
-  try {
-    await WebService().start("Musicista MySongBook");
-    print("Servizio di scambio brani avviato correttamente");
-  } catch (e) {
-    print("Errore durante l'avvio del WebService: $e");
-  }
-
-  // ⚠️ Reset totale della scaletta rimosso per permettere il salvataggio dei brani
-  // await ScalettaReset.reset();
+  // 🔵 Nessun WebService, nessun Bonsoir, nessuna rete.
+  // Il nuovo sistema usa solo la cartella locale.
+  print("MySongBook avviato. Caricamento da cartella locale attivo.");
 
   runApp(const MySongBookApp());
 }
@@ -29,26 +21,24 @@ class MySongBookApp extends StatelessWidget {
     return MaterialApp(
       title: "MySongBook",
       debugShowCheckedModeBanner: false,
-      
-      // --- CONFIGURAZIONE LINGUA ITALIANA ---
-      // Questi delegati dicono a Flutter come tradurre i widget nativi (bottoni, menu, tasto incolla)
+
+      // --- LOCALIZZAZIONE ITALIANA ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('it', 'IT'), // Italiano
+        Locale('it', 'IT'),
       ],
-      // Forza l'app a usare l'italiano indipendentemente dalla lingua del telefono
-      locale: const Locale('it', 'IT'), 
-      // ---------------------------------------
+      locale: const Locale('it', 'IT'),
 
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         fontFamily: "Roboto",
-        useMaterial3: false, // Mantieni false se preferisci lo stile classico
+        useMaterial3: false,
       ),
+
       home: const SplashScreen(),
     );
   }

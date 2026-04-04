@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/file_storage_service.dart';
+
 import 'crea_spartito_screen.dart';
 import 'scaletta_screen.dart';
 import 'bozze_screen.dart';
@@ -35,7 +37,7 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     });
   }
 
-  // LOGICA RIPRISTINO INTELLIGENTE: distingue tra Bozza e Scaletta
+  // RIPRISTINO (torna in scaletta)
   Future<void> _ripristinaBrano(int index) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -45,53 +47,52 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
         eliminati.removeAt(index);
       });
 
-      // Controllo se è una bozza o un brano definitivo
-      bool eUnaBozza = brano["isBozza"] == true;
-      String chiaveDestinazione = eUnaBozza ? "bozze" : "scaletta";
-
-      final listaDestinazione = prefs.getStringList(chiaveDestinazione) ?? [];
+      final listaDest = prefs.getStringList("scaletta") ?? [];
       List<Map<String, dynamic>> listaRecuperata =
-          listaDestinazione.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+          listaDest.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
 
       listaRecuperata.add(brano);
 
-      // Ordinamento alfabetico della lista di destinazione
       listaRecuperata.sort((a, b) =>
           (a["titolo"] ?? "").toString().compareTo((b["titolo"] ?? "").toString()));
 
-      // Scrittura forzata su disco per la lista di destinazione (Bozze o Scaletta)
       await prefs.setStringList(
-        chiaveDestinazione,
+        "scaletta",
         listaRecuperata.map((e) => jsonEncode(e)).toList(),
       );
 
-      // Aggiornamento lista Eliminati su disco
       await prefs.setStringList(
         "eliminati",
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
-      
-      debugPrint("Brano ripristinato correttamente in: $chiaveDestinazione");
+
+      debugPrint("Brano ripristinato correttamente.");
     } catch (e) {
       debugPrint("Errore ripristino: $e");
     }
   }
 
+  // ELIMINAZIONE DEFINITIVA (anche file fisico)
   Future<void> _eliminaDefinitivamente(int index) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final brano = eliminati[index];
 
+      // 1) elimina file fisico
+      await FileStorageService.deleteSong(brano);
+
+      // 2) rimuovi dalla lista
       setState(() {
         eliminati.removeAt(index);
       });
 
-      // Scrittura forzata su disco per iOS
+      // 3) salva lista aggiornata
       await prefs.setStringList(
         "eliminati",
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
-      
-      debugPrint("Brano eliminato definitivamente dal disco.");
+
+      debugPrint("Brano eliminato definitivamente + file cancellato.");
     } catch (e) {
       debugPrint("Errore eliminazione definitiva: $e");
     }
@@ -103,12 +104,15 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF212121),
-          title: const Text("Eliminare definitivamente?", style: TextStyle(color: Colors.white)),
-          content: const Text("Questa operazione non può essere annullata.", style: TextStyle(color: Colors.white70)),
+          title: const Text("Eliminare definitivamente?",
+              style: TextStyle(color: Colors.white)),
+          content: const Text("Questa operazione non può essere annullata.",
+              style: TextStyle(color: Colors.white70)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text("Annulla", style: TextStyle(color: Colors.white70)),
+              child: const Text("Annulla",
+                  style: TextStyle(color: Colors.white70)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
@@ -133,12 +137,16 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF212121),
-          title: const Text("Svuotare il cestino?", style: TextStyle(color: Colors.white)),
-          content: const Text("Tutti i brani eliminati saranno rimossi definitivamente.", style: TextStyle(color: Colors.white70)),
+          title: const Text("Svuotare il cestino?",
+              style: TextStyle(color: Colors.white)),
+          content: const Text(
+              "Tutti i brani eliminati saranno rimossi definitivamente.",
+              style: TextStyle(color: Colors.white70)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text("Annulla", style: TextStyle(color: Colors.white70)),
+              child: const Text("Annulla",
+                  style: TextStyle(color: Colors.white70)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
@@ -155,32 +163,41 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     if (conferma == true) {
       try {
         final prefs = await SharedPreferences.getInstance();
+
+        // elimina fisicamente tutti i file
+        for (final brano in eliminati) {
+          await FileStorageService.deleteSong(brano);
+        }
+
         setState(() {
           eliminati.clear();
         });
-        // Scrittura forzata svuotamento
+
         await prefs.setStringList("eliminati", []);
-        debugPrint("Cestino svuotato su disco.");
+
+        debugPrint("Cestino svuotato + file cancellati.");
       } catch (e) {
         debugPrint("Errore svuotamento cestino: $e");
       }
     }
   }
 
+  // -------------------------------------------------------------
+  // UI
+  // -------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // HEADER NERO CON SAFE AREA
+          // HEADER
           Container(
             color: Colors.black,
             child: SafeArea(
               bottom: false,
               child: Container(
                 height: 70,
-                width: double.infinity,
                 alignment: Alignment.center,
                 child: const Text(
                   "ELIMINATI",
@@ -195,7 +212,7 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
             ),
           ),
 
-          // TAB BAR (Navigazione)
+          // TAB BAR
           Container(
             height: 50,
             alignment: Alignment.center,
@@ -203,27 +220,33 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CreaSpartitoScreen())),
-                  child: Text(
-                    "crea spartito",
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
-                  ),
+                  onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const CreaSpartitoScreen())),
+                  child: Text("crea spartito",
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
                 ),
                 const SizedBox(width: 24),
                 GestureDetector(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ScalettaScreen())),
-                  child: Text(
-                    "scaletta",
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
-                  ),
+                  onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ScalettaScreen())),
+                  child: Text("scaletta",
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
                 ),
                 const SizedBox(width: 24),
                 GestureDetector(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BozzeScreen())),
-                  child: Text(
-                    "bozze",
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
-                  ),
+                  onTap: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const BozzeScreen())),
+                  child: Text("bozze",
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
                 ),
               ],
             ),
@@ -235,10 +258,8 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
           Expanded(
             child: eliminati.isEmpty
                 ? const Center(
-                    child: Text(
-                      "Cestino vuoto",
-                      style: TextStyle(color: Colors.white38, fontSize: 16),
-                    ),
+                    child: Text("Cestino vuoto",
+                        style: TextStyle(color: Colors.white38, fontSize: 16)),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -256,9 +277,14 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                           child: const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.sentiment_satisfied_alt, color: Colors.white, size: 28),
+                              Icon(Icons.restore,
+                                  color: Colors.white, size: 28),
                               SizedBox(height: 4),
-                              Text("Ripristina", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              Text("Ripristina",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10)),
                             ],
                           ),
                         ),
@@ -269,9 +295,14 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                           child: const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.delete_forever, color: Colors.white, size: 28),
+                              Icon(Icons.delete_forever,
+                                  color: Colors.white, size: 28),
                               SizedBox(height: 4),
-                              Text("Elimina", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              Text("Elimina",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10)),
                             ],
                           ),
                         ),
@@ -287,7 +318,8 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                         child: Container(
                           width: double.infinity,
                           margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 14),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(8),
@@ -295,15 +327,15 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                brano["titolo"] ?? "Senza Titolo",
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
+                              Text(brano["titolo"] ?? "Senza Titolo",
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              Text(
-                                brano["artista"] ?? "Artista sconosciuto",
-                                style: const TextStyle(color: Colors.white70, fontSize: 13),
-                              ),
+                              Text(brano["artista"] ?? "Artista sconosciuto",
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 13)),
                             ],
                           ),
                         ),
@@ -312,34 +344,37 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
                   ),
           ),
 
-          // BARRA IN BASSO
+          // FOOTER
           Container(
             width: double.infinity,
             color: Colors.grey.shade400,
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "ELIMINATI: ${eliminati.length}",
-                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                    ),
+                    Text("ELIMINATI: ${eliminati.length}",
+                        style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold)),
                     if (eliminati.isNotEmpty)
                       GestureDetector(
                         onTap: _svuotaCestino,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            "SVUOTA CESTINO",
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
+                          child: const Text("SVUOTA CESTINO",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12)),
                         ),
                       ),
                   ],
