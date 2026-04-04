@@ -27,14 +27,17 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
-    <!-- 🔥 CARTELLA CONDIVISA ATTIVA -->
+    <!-- 🔥 RENDI VISIBILE LA CARTELLA DOCUMENTS NELL’APP FILE -->
     <key>UIFileSharingEnabled</key>
     <true/>
     <key>LSSupportsOpeningDocumentsInPlace</key>
     <true/>
+
+    <!-- (Opzionale, non dannoso) -->
     <key>UISupportsDocumentBrowser</key>
     <true/>
 
+    <!-- 🔥 PERMESSO PER IMPORTARE/ESPORTARE FILE -->
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Necessario per salvare o importare spartiti</string>
 
