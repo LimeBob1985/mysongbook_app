@@ -9,8 +9,8 @@ class FileStorageService {
   static Future<Directory> getFolder() async {
     if (_folder != null) return _folder!;
 
-    // 🔥 CAMBIATO: ora usa la cartella SUPPORT, visibile nell’app File
-    final baseDir = await getApplicationSupportDirectory();
+    // 🔥 DEVE ESSERE DOCUMENTS per essere visibile nell’app File
+    final baseDir = await getApplicationDocumentsDirectory();
     final dir = Directory("${baseDir.path}/MySongBookScaletta");
 
     if (!await dir.exists()) {
@@ -29,7 +29,6 @@ class FileStorageService {
   static Future<void> saveSong(Map<String, dynamic> song) async {
     final dir = await getFolder();
 
-    // Nome file sicuro
     final safeTitle = song["titolo"]
         .toString()
         .trim()
