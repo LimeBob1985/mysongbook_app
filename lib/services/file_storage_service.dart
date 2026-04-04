@@ -3,26 +3,10 @@ import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 
 class FileStorageService {
-  static Directory? _folder;
-
-  /// Restituisce la cartella MySongBookScaletta, creandola se non esiste
+  /// Restituisce la cartella Documents (visibile nell’app File)
   static Future<Directory> getFolder() async {
-    if (_folder != null) return _folder!;
-
-    // 🔥 DEVE ESSERE DOCUMENTS per essere visibile nell’app File
     final baseDir = await getApplicationDocumentsDirectory();
-    final dir = Directory("${baseDir.path}/MySongBookScaletta");
-
-    if (!await dir.exists()) {
-      try {
-        await dir.create(recursive: true);
-      } catch (e) {
-        print("Errore creazione cartella: $e");
-      }
-    }
-
-    _folder = dir;
-    return dir;
+    return baseDir; // 🔥 niente sottocartelle
   }
 
   /// Salva un singolo brano come file .mysongbook
@@ -53,11 +37,12 @@ class FileStorageService {
 
     for (final f in files) {
       try {
-        final content = await f.readAsString();
-        final decoded = jsonDecode(content);
-
-        if (decoded is Map<String, dynamic>) {
-          songs.add(decoded);
+        if (f.path.endsWith(".mysongbook")) {
+          final content = await f.readAsString();
+          final decoded = jsonDecode(content);
+          if (decoded is Map<String, dynamic>) {
+            songs.add(decoded);
+          }
         }
       } catch (e) {
         print("Errore lettura file ${f.path}: $e");
