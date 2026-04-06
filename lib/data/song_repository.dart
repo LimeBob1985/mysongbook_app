@@ -1,6 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:uuid/uuid.dart';
+import '../services/file_storage_service.dart';
 
 class SongRepository {
   SongRepository._privateConstructor();
@@ -8,62 +7,59 @@ class SongRepository {
 
   final Uuid _uuid = const Uuid();
 
+  /// Carica tutti i brani dalla cartella locale
   Future<List<Map<String, dynamic>>> getSongs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString('songs');
-    if (jsonString == null) return [];
-    return List<Map<String, dynamic>>.from(json.decode(jsonString));
+    return await FileStorageService.loadAllSongs();
   }
 
+  /// Salva TUTTI i brani uno per uno nella cartella locale
   Future<void> saveSongs(List<Map<String, dynamic>> songs) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('songs', json.encode(songs));
+    for (final song in songs) {
+      await FileStorageService.saveSong(song);
+    }
   }
 
+  /// Crea un nuovo brano e lo salva come file .mysongbook
   Future<void> createSong({
     required String title,
     required String artist,
     required List<String> lines,
     required int transpose,
   }) async {
-    final songs = await getSongs();
-
-    songs.add({
+    final newSong = {
       "id": _uuid.v4(),
       "title": title,
       "artist": artist,
       "lines": lines,
       "transpose": transpose,
       "deleted": false,
-    });
+    };
 
-    await saveSongs(songs);
+    await FileStorageService.saveSong(newSong);
   }
 
+  /// Aggiorna un brano esistente
   Future<void> updateSong(String id, Map<String, dynamic> updated) async {
-    final songs = await getSongs();
-    final index = songs.indexWhere((s) => s["id"] == id);
-    if (index == -1) return;
-
-    songs[index] = updated;
-    await saveSongs(songs);
+    await FileStorageService.saveSong(updated);
   }
 
+  /// Segna un brano come eliminato
   Future<void> deleteSong(String id) async {
     final songs = await getSongs();
     final index = songs.indexWhere((s) => s["id"] == id);
     if (index == -1) return;
 
     songs[index]["deleted"] = true;
-    await saveSongs(songs);
+    await FileStorageService.saveSong(songs[index]);
   }
 
+  /// Ripristina un brano eliminato
   Future<void> restoreSong(String id) async {
     final songs = await getSongs();
     final index = songs.indexWhere((s) => s["id"] == id);
     if (index == -1) return;
 
     songs[index]["deleted"] = false;
-    await saveSongs(songs);
+    await FileStorageService.saveSong(songs[index]);
   }
 }

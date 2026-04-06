@@ -64,6 +64,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
     if (modifiche) {
       await _salvaListe();
+      await _salvaFileEsterni(); // 🔥 aggiunto
       _ordinaEAggiorna();
     }
   }
@@ -79,7 +80,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     setState(() {
       scaletta = listaScaletta.map<Map<String, dynamic>>((e) {
         final Map<String, dynamic> data = jsonDecode(e);
-        String testoRecuperato = data["testo"] ?? data["testo_originale"] ?? data["content"] ?? "";
+        String testoRecuperato =
+            data["testo"] ?? data["testo_originale"] ?? data["content"] ?? "";
         return {
           "titolo": data["titolo"] ?? data["title"] ?? "Senza Titolo",
           "artista": data["artista"] ?? data["artist"] ?? "Artista Sconosciuto",
@@ -90,7 +92,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
         };
       }).toList();
 
-      eliminati = listaEliminati.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+      eliminati =
+          listaEliminati.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
       _ordinaEAggiorna();
     });
   }
@@ -101,8 +104,10 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   Future<void> _salvaListe() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final List<String> stringListScaletta = scaletta.map((e) => jsonEncode(e)).toList();
-      final List<String> stringListEliminati = eliminati.map((e) => jsonEncode(e)).toList();
+      final List<String> stringListScaletta =
+          scaletta.map((e) => jsonEncode(e)).toList();
+      final List<String> stringListEliminati =
+          eliminati.map((e) => jsonEncode(e)).toList();
       await prefs.setStringList("scaletta", stringListScaletta);
       await prefs.setStringList("eliminati", stringListEliminati);
     } catch (e) {
@@ -111,12 +116,22 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   }
 
   // -------------------------------------------------------------
+  // SALVATAGGIO SU FILE ESTERNI
+  // -------------------------------------------------------------
+  Future<void> _salvaFileEsterni() async {
+    for (final song in scaletta) {
+      await FileStorageService.saveSong(song);
+    }
+  }
+
+  // -------------------------------------------------------------
   // ORDINAMENTO
   // -------------------------------------------------------------
   void _ordinaEAggiorna() {
     setState(() {
-      scaletta.sort((a, b) =>
-          (a["titolo"] as String).toLowerCase().compareTo((b["titolo"] as String).toLowerCase()));
+      scaletta.sort((a, b) => (a["titolo"] as String)
+          .toLowerCase()
+          .compareTo((b["titolo"] as String).toLowerCase()));
       scalettaFiltrata = List.from(scaletta);
     });
   }
@@ -128,7 +143,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     setState(() {
       _searchController.clear();
       scalettaFiltrata = List.from(scaletta);
-      FocusScope.of(context).unfocus(); // Chiude la tastiera
+      FocusScope.of(context).unfocus();
     });
   }
 
@@ -160,6 +175,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     });
 
     await _salvaListe();
+    await _salvaFileEsterni(); // 🔥 aggiunto
   }
 
   // -------------------------------------------------------------
@@ -170,7 +186,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     double offset = _scrollController.offset;
     int index = (offset / 72).floor();
     if (index >= 0 && index < scalettaFiltrata.length) {
-      String primaLettera = scalettaFiltrata[index]["titolo"][0].toUpperCase();
+      String primaLettera =
+          scalettaFiltrata[index]["titolo"][0].toUpperCase();
       if (alfabeto.contains(primaLettera) && letteraAttiva != primaLettera) {
         setState(() => letteraAttiva = primaLettera);
       }
@@ -181,7 +198,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     int index = scalettaFiltrata.indexWhere(
         (b) => b["titolo"].toString().toUpperCase().startsWith(lettera));
     if (index != -1) {
-      // Usiamo jumpTo per istantaneità durante il drag dell'alfabeto
       _scrollController.jumpTo(index * 72.0);
       setState(() => letteraAttiva = lettera);
     }
@@ -199,7 +215,8 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF212121),
-        title: const Text("Modifica brano", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Modifica brano", style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -234,12 +251,13 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               });
               _ordinaEAggiorna();
               await _salvaListe();
+              await _salvaFileEsterni(); // 🔥 aggiunto
               if (!context.mounted) return;
               Navigator.pop(context);
             },
             child: const Text("SALVA",
-                style:
-                    TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                    color: Colors.amber, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -269,7 +287,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                     // AREA DOPPIO TAP A SINISTRA
                     GestureDetector(
                       onDoubleTap: _resetRicerca,
-                      behavior: HitTestBehavior.opaque, // Rende intera l'area cliccabile
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
                         width: 60,
                         height: double.infinity,
@@ -307,17 +325,20 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // CREA SPARTITO (sta a sinistra → entra da sinistra)
+                // CREA SPARTITO
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
                     context,
                     PageRouteBuilder(
-                      pageBuilder: (_, __, ___) => const CreaSpartitoScreen(),
-                      transitionDuration: const Duration(milliseconds: 300),
-                      transitionsBuilder: (_, animation, __, child) {
+                      pageBuilder: (_, __, ___) =>
+                          const CreaSpartitoScreen(),
+                      transitionDuration:
+                          const Duration(milliseconds: 300),
+                      transitionsBuilder:
+                          (_, animation, __, child) {
                         return SlideTransition(
                           position: Tween<Offset>(
-                            begin: const Offset(-1, 0), // entra da sinistra
+                            begin: const Offset(-1, 0),
                             end: Offset.zero,
                           ).animate(
                             CurvedAnimation(
@@ -352,17 +373,20 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
                 const SizedBox(width: 24),
 
-                // BOZZE (sta a destra → entra da destra)
+                // BOZZE
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
                     context,
                     PageRouteBuilder(
-                      pageBuilder: (_, __, ___) => const BozzeScreen(),
-                      transitionDuration: const Duration(milliseconds: 300),
-                      transitionsBuilder: (_, animation, __, child) {
+                      pageBuilder: (_, __, ___) =>
+                          const BozzeScreen(),
+                      transitionDuration:
+                          const Duration(milliseconds: 300),
+                      transitionsBuilder:
+                          (_, animation, __, child) {
                         return SlideTransition(
                           position: Tween<Offset>(
-                            begin: const Offset(1, 0), // entra da destra
+                            begin: const Offset(1, 0),
                             end: Offset.zero,
                           ).animate(
                             CurvedAnimation(
@@ -393,18 +417,21 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white54, width: 1.5),
+                  border:
+                      Border.all(color: Colors.white54, width: 1.5),
                   borderRadius: BorderRadius.circular(4)),
               child: TextField(
                 controller: _searchController,
                 onChanged: _eseguiRicerca,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 16),
                 decoration: const InputDecoration(
                     hintText: "Cerca una canzone o un artista....",
-                    hintStyle: TextStyle(color: Colors.white38),
+                    hintStyle:
+                        TextStyle(color: Colors.white38),
                     border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 15, vertical: 12)),
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: 15, vertical: 12)),
               ),
             ),
           ),
@@ -427,22 +454,26 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                         mostraLettera = true;
                       } else {
                         String letteraPrecedente =
-                            scalettaFiltrata[index - 1]["titolo"]
-                                [0]
+                            scalettaFiltrata[index - 1]
+                                    ["titolo"][0]
                                 .toUpperCase();
-                        if (letteraCorrente != letteraPrecedente) {
+                        if (letteraCorrente !=
+                            letteraPrecedente) {
                           mostraLettera = true;
                         }
                       }
 
                       return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
                           if (mostraLettera)
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8),
                               decoration: const BoxDecoration(
                                   color: Color(0xFF1A1A1A),
                                   border: Border(
@@ -452,35 +483,41 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                               child: Text(letteraCorrente,
                                   style: const TextStyle(
                                       color: Colors.white70,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight:
+                                          FontWeight.bold,
                                       fontSize: 14)),
                             ),
 
                           Dismissible(
                             key: ObjectKey(brano),
-                            direction: DismissDirection.endToStart,
+                            direction:
+                                DismissDirection.endToStart,
                             background: const SizedBox(),
                             secondaryBackground: Container(
                               alignment: Alignment.centerRight,
                               padding:
-                                  const EdgeInsets.only(right: 20),
+                                  const EdgeInsets.only(
+                                      right: 20),
                               color: Colors.red,
                               child: const Column(
                                 mainAxisAlignment:
                                     MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.delete_outline,
-                                      color: Colors.white, size: 28),
+                                      color: Colors.white,
+                                      size: 28),
                                   SizedBox(height: 4),
                                   Text("Elimina",
                                       style: TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight:
+                                              FontWeight.bold,
                                           fontSize: 12)),
                                 ],
                               ),
                             ),
-                            confirmDismiss: (direction) async {
+                            confirmDismiss:
+                                (direction) async {
                               await _eliminaBrano(index);
                               return true;
                             },
@@ -488,32 +525,40 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                               leading: Container(
                                   width: 10,
                                   height: 10,
-                                  decoration: const BoxDecoration(
-                                      color: Colors.amber,
-                                      shape: BoxShape.circle)),
+                                  decoration:
+                                      const BoxDecoration(
+                                          color: Colors.amber,
+                                          shape: BoxShape
+                                              .circle)),
                               title: Text(brano["titolo"],
                                   style: const TextStyle(
                                       color: Colors.white,
-                                      fontWeight: FontWeight.bold)),
-                              subtitle: Text(brano["artista"],
+                                      fontWeight:
+                                          FontWeight.bold)),
+                              subtitle: Text(
+                                  brano["artista"],
                                   style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 13)),
                               onLongPress: () =>
-                                  _mostraDialogRinomina(index),
+                                  _mostraDialogRinomina(
+                                      index),
                               onTap: () {
                                 Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                         builder: (_) =>
                                             LetturaSpartitoScreen(
-                                              titolo: brano["titolo"],
-                                              artista:
-                                                  brano["artista"],
+                                              titolo: brano[
+                                                  "titolo"],
+                                              artista: brano[
+                                                  "artista"],
                                               testoCompleto:
-                                                  brano["testo"],
+                                                  brano[
+                                                      "testo"],
                                               trasposizione:
-                                                  brano["trasposizione"],
+                                                  brano[
+                                                      "trasposizione"],
                                             ))).then((_) =>
                                     _caricaListe());
                               },
@@ -528,40 +573,63 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 // --- SCROLLBAR ALFABETICA CON GESTIONE DRAG ---
                 Container(
                   width: 32,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       return GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        // Rileva lo scorrimento del dito
                         onVerticalDragUpdate: (details) {
-                          final letterHeight = constraints.maxHeight / alfabeto.length;
-                          int index = (details.localPosition.dy / letterHeight).floor();
-                          if (index >= 0 && index < alfabeto.length) {
-                            _saltaALettera(alfabeto[index]);
+                          final letterHeight =
+                              constraints.maxHeight /
+                                  alfabeto.length;
+                          int index =
+                              (details.localPosition.dy /
+                                      letterHeight)
+                                  .floor();
+                          if (index >= 0 &&
+                              index < alfabeto.length) {
+                            _saltaALettera(
+                                alfabeto[index]);
                           }
                         },
-                        // Rileva il tocco singolo
                         onTapDown: (details) {
-                          final letterHeight = constraints.maxHeight / alfabeto.length;
-                          int index = (details.localPosition.dy / letterHeight).floor();
-                          if (index >= 0 && index < alfabeto.length) {
-                            _saltaALettera(alfabeto[index]);
+                          final letterHeight =
+                              constraints.maxHeight /
+                                  alfabeto.length;
+                          int index =
+                              (details.localPosition.dy /
+                                      letterHeight)
+                                  .floor();
+                          if (index >= 0 &&
+                              index < alfabeto.length) {
+                            _saltaALettera(
+                                alfabeto[index]);
                           }
                         },
                         child: Column(
                           children: alfabeto.map((l) {
-                            bool isActive = letteraAttiva == l;
+                            bool isActive =
+                                letteraAttiva == l;
                             return Expanded(
                               child: Center(
                                 child: Text(
                                   l,
                                   style: TextStyle(
                                     color: isActive
-                                        ? const Color(0xFF42A5F5)
-                                        : const Color(0xFF64B5F6).withOpacity(0.7),
-                                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                                    fontSize: isActive ? 14 : 10,
+                                        ? const Color(
+                                            0xFF42A5F5)
+                                        : const Color(
+                                                0xFF64B5F6)
+                                            .withOpacity(
+                                                0.7),
+                                    fontWeight: isActive
+                                        ? FontWeight.bold
+                                        : FontWeight
+                                            .normal,
+                                    fontSize: isActive
+                                        ? 14
+                                        : 10,
                                   ),
                                 ),
                               ),
@@ -583,10 +651,11 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 : () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const EliminatiScreen()))
+                            builder: (_) =>
+                                const EliminatiScreen()))
                     .then((_) {
-                    if (mounted) _caricaListe();
-                  }),
+                      if (mounted) _caricaListe();
+                    }),
             child: Container(
               width: double.infinity,
               color: eliminati.isEmpty
