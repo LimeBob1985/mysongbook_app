@@ -33,7 +33,7 @@
     <key>LSSupportsOpeningDocumentsInPlace</key>
     <true/>
 
-    <!-- (Opzionale, non dannoso) -->
+    <!-- (Opzionale ma utile) -->
     <key>UISupportsDocumentBrowser</key>
     <true/>
 
@@ -59,15 +59,15 @@
     <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>
+            <key>UTTypeIdentifier</key>
+            <string>com.mysongbook.file</string>
+            <key>UTTypeDescription</key>
+            <string>MySongBook File</string>
             <key>UTTypeConformsTo</key>
             <array>
                 <string>public.data</string>
                 <string>public.json</string>
             </array>
-            <key>UTTypeDescription</key>
-            <string>MySongBook File</string>
-            <key>UTTypeIdentifier</key>
-            <string>com.mysongbook.file</string>
             <key>UTTypeTagSpecification</key>
             <dict>
                 <key>public.filename-extension</key>

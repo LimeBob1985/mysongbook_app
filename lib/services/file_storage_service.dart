@@ -3,10 +3,18 @@ import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 
 class FileStorageService {
-  /// Restituisce la cartella Documents (visibile nell’app File)
+  /// Restituisce la cartella DOCUMENTS visibile nell’app File
   static Future<Directory> getFolder() async {
-    final baseDir = await getApplicationDocumentsDirectory();
-    return baseDir; // 🔥 niente sottocartelle
+    // 🔥 iOS espone SOLO questa cartella quando UIFileSharingEnabled = true
+    final dir = await getApplicationDocumentsDirectory();
+
+    // Assicuriamoci che esista
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+
+    print("📁 Cartella usata: ${dir.path}");
+    return dir;
   }
 
   /// Salva un singolo brano come file .mysongbook
@@ -24,7 +32,7 @@ class FileStorageService {
       await file.writeAsString(jsonEncode(song), flush: true);
       print("🔥 Salvato file in: ${file.path}");
     } catch (e) {
-      print("Errore salvataggio file $safeTitle: $e");
+      print("❌ Errore salvataggio file $safeTitle: $e");
     }
   }
 
@@ -45,7 +53,7 @@ class FileStorageService {
           }
         }
       } catch (e) {
-        print("Errore lettura file ${f.path}: $e");
+        print("❌ Errore lettura file ${f.path}: $e");
       }
     }
 
@@ -66,9 +74,10 @@ class FileStorageService {
     try {
       if (await file.exists()) {
         await file.delete();
+        print("🗑️ Eliminato file: ${file.path}");
       }
     } catch (e) {
-      print("Errore eliminazione file $safeTitle: $e");
+      print("❌ Errore eliminazione file $safeTitle: $e");
     }
   }
 }
