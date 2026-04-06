@@ -48,24 +48,19 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   // -------------------------------------------------------------
   Future<void> _caricaFileDaCartella() async {
     final files = await FileStorageService.loadAllSongs();
-
     bool modifiche = false;
-
     for (final song in files) {
-      bool esiste = scaletta.any((b) =>
-          b["titolo"] == song["titolo"] &&
-          b["artista"] == song["artista"]);
-
+      bool esiste = scaletta.any(
+        (b) => b["titolo"] == song["titolo"] && b["artista"] == song["artista"],
+      );
       if (!esiste) {
         scaletta.add(song);
         modifiche = true;
       }
     }
-
     if (modifiche) {
-      await _salvaListe();
-      await _salvaFileEsterni(); // 🔥 aggiunto
       _ordinaEAggiorna();
+      await _salvaListe();
     }
   }
 
@@ -80,14 +75,14 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     setState(() {
       scaletta = listaScaletta.map<Map<String, dynamic>>((e) {
         final Map<String, dynamic> data = jsonDecode(e);
+
+        // Mapping richiesto
         String testoRecuperato =
             data["testo"] ?? data["testo_originale"] ?? data["content"] ?? "";
         return {
           "titolo": data["titolo"] ?? data["title"] ?? "Senza Titolo",
           "artista": data["artista"] ?? data["artist"] ?? "Artista Sconosciuto",
           "testo": testoRecuperato,
-          "righe": data["righe"],
-          "struttura_completa": data["struttura_completa"],
           "trasposizione": data["trasposizione"] ?? 0,
         };
       }).toList();
@@ -175,7 +170,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     });
 
     await _salvaListe();
-    await _salvaFileEsterni(); // 🔥 aggiunto
+    await _salvaFileEsterni();
   }
 
   // -------------------------------------------------------------
@@ -251,7 +246,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               });
               _ordinaEAggiorna();
               await _salvaListe();
-              await _salvaFileEsterni(); // 🔥 aggiunto
+              await _salvaFileEsterni();
               if (!context.mounted) return;
               Navigator.pop(context);
             },

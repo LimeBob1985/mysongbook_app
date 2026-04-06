@@ -26,10 +26,11 @@ class SongRepository {
     required List<String> lines,
     required int transpose,
   }) async {
+    // 🔥 IMPORTANTE: Uso "titolo" (italiano) come nel FileStorageService
     final newSong = {
       "id": _uuid.v4(),
-      "title": title,
-      "artist": artist,
+      "titolo": title, 
+      "artista": artist,
       "lines": lines,
       "transpose": transpose,
       "deleted": false,
