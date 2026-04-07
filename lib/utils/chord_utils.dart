@@ -39,9 +39,14 @@ class ChordUtils {
   }
 
   static bool isPureChordLine(String line) {
+    // 🔥 BLINDATO: solo righe che iniziano con [AC] sono considerate accordi
+    String trimmed = line.trim();
+    if (!trimmed.startsWith("[AC]")) return false;
+
+    // Il resto rimane qui, ma di fatto non verrà più usato
     if (line.startsWith("[AC]")) return true;
 
-    String trimmed = line.trim();
+    trimmed = line.trim();
     if (trimmed.isEmpty) return false;
 
     List<String> words = trimmed.split(RegExp(r'\s+'));

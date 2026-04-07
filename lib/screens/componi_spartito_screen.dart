@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/chord_utils.dart';
 
 class BoldTextEditingController extends TextEditingController {
-  static const String boldTag = '\u200D'; 
+  static const String boldTag = '\u200D';
 
   @override
-  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
     final List<TextSpan> children = [];
     final regex = RegExp(r'(\u200D.*?\u200D|[^\u200D]+)');
     final matches = regex.allMatches(text);
@@ -15,10 +18,15 @@ class BoldTextEditingController extends TextEditingController {
     for (final match in matches) {
       final part = match.group(0)!;
       if (part.startsWith(boldTag) && part.endsWith(boldTag)) {
-        children.add(TextSpan(
-          text: part.replaceAll(boldTag, ''),
-          style: style?.copyWith(fontWeight: FontWeight.w900, color: Colors.black),
-        ));
+        children.add(
+          TextSpan(
+            text: part.replaceAll(boldTag, ''),
+            style: style?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+            ),
+          ),
+        );
       } else {
         children.add(TextSpan(text: part, style: style));
       }
@@ -66,35 +74,36 @@ class ComponiSpartitoScreen extends StatefulWidget {
   State<ComponiSpartitoScreen> createState() => _ComponiSpartitoScreenState();
 }
 
-class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with WidgetsBindingObserver {
+class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen>
+    with WidgetsBindingObserver {
   final List<RigaOggetto> _struttura = [];
   ChordInstance? _selectedChord;
   int? _selectedLineIndex;
   int? _selectedChordIndex;
 
   final TextStyle _stileAccordi = const TextStyle(
-    fontFamily: "monospace",
+    fontFamily: "RobotoMono",
     fontWeight: FontWeight.bold,
     fontSize: 16,
-    color: Colors.blue, 
+    color: Colors.blue,
   );
 
   final TextStyle _stileTesto = const TextStyle(
-    fontFamily: "monospace",
+    fontFamily: "RobotoMono",
     fontSize: 17,
-    color: Colors.black, 
+    color: Colors.black,
   );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Monitora lo stato dell'app
+    WidgetsBinding.instance.addObserver(this);
     _inizializzaStruttura();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Rimuove il monitoraggio
+    WidgetsBinding.instance.removeObserver(this);
     for (var riga in _struttura) {
       riga.controller.dispose();
     }
@@ -103,43 +112,78 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Se l'app viene chiusa o messa in background, salva automaticamente come bozza
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _salvaProcesso(isBozza: true, isAutomatico: true);
     }
   }
 
   void _inizializzaStruttura() {
-    if (widget.righeSalvate != null && widget.righeSalvate!.isNotEmpty) {
-      for (var r in widget.righeSalvate!) {
-        TipoRiga tipo = TipoRiga.values.firstWhere((e) => e.name == r['tipo'], orElse: () => TipoRiga.testo);
-        List<ChordInstance> accordiCaricati = [];
-        if (r['accordi'] != null) {
-          for (var a in r['accordi']) {
-            accordiCaricati.add(ChordInstance(text: a['text'], x: (a['x'] as num).toDouble()));
+    try {
+      // Priorità al caricamento strutturato (JSON)
+      if (widget.righeSalvate != null && widget.righeSalvate!.isNotEmpty) {
+        for (var r in widget.righeSalvate!) {
+          String tipoString = r['tipo'] ?? 'testo';
+          TipoRiga tipo = TipoRiga.values.firstWhere(
+            (e) => e.name == tipoString,
+            orElse: () => TipoRiga.testo,
+          );
+
+          List<ChordInstance> accordiCaricati = [];
+          if (r['accordi'] != null && r['accordi'] is List) {
+            for (var a in r['accordi']) {
+              accordiCaricati.add(
+                ChordInstance(
+                  text: a['text'] ?? "",
+                  x: (a['x'] as num? ?? 0.0).toDouble(),
+                ),
+              );
+            }
+          }
+
+          _struttura.add(
+            RigaOggetto(
+              tipo: tipo,
+              controller: BoldTextEditingController()..text = r['testo'] ?? "",
+              accordi: accordiCaricati,
+            ),
+          );
+        }
+      }
+      // Caricamento da testo piano (es. prima importazione o stringa salvata)
+      else {
+        final linee = widget.testoIniziale.split('\n');
+        for (String linea in linee) {
+          final trimLine = linea.trim();
+
+          if (trimLine.isEmpty) {
+            _struttura.add(RigaOggetto(tipo: TipoRiga.vuota));
+          }
+          // RIGA ACCORDI SOLO SE È ESATTAMENTE "[AC]"
+          else if (trimLine == "[AC]") {
+            _struttura.add(
+              RigaOggetto(
+                tipo: TipoRiga.accordi,
+                controller: BoldTextEditingController()..text = "",
+                accordi: [],
+              ),
+            );
+          }
+          // Tutto il resto è SEMPRE testo
+          else {
+            _struttura.add(
+              RigaOggetto(
+                tipo: TipoRiga.testo,
+                controller: BoldTextEditingController()..text = linea,
+              ),
+            );
           }
         }
-        
-        _struttura.add(RigaOggetto(
-          tipo: tipo,
-          controller: BoldTextEditingController()..text = r['testo'] ?? "",
-          accordi: accordiCaricati,
-        ));
       }
-    } else {
-      final linee = widget.testoIniziale.split('\n');
-      for (String linea in linee) {
-        if (linea.trim().isEmpty) {
-          _struttura.add(RigaOggetto(tipo: TipoRiga.vuota));
-        } else {
-          _struttura.add(RigaOggetto(
-            tipo: TipoRiga.testo, 
-            controller: BoldTextEditingController()..text = linea
-          ));
-        }
-      }
+    } catch (e) {
+      debugPrint("Errore nel caricamento struttura: $e");
     }
-    
+
     if (_struttura.isEmpty) {
       _struttura.add(RigaOggetto(tipo: TipoRiga.testo));
     }
@@ -153,9 +197,17 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
     const tag = BoldTextEditingController.boldTag;
     String newText;
     if (selectedText.startsWith(tag) && selectedText.endsWith(tag)) {
-      newText = text.replaceRange(selection.start, selection.end, selectedText.replaceAll(tag, ''));
+      newText = text.replaceRange(
+        selection.start,
+        selection.end,
+        selectedText.replaceAll(tag, ''),
+      );
     } else {
-      newText = text.replaceRange(selection.start, selection.end, '$tag$selectedText$tag');
+      newText = text.replaceRange(
+        selection.start,
+        selection.end,
+        '$tag$selectedText$tag',
+      );
     }
     controller.value = controller.value.copyWith(
       text: newText,
@@ -166,7 +218,8 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
   void _cancellaSelezione(TextEditingController controller) {
     final selection = controller.selection;
     if (!selection.isValid || selection.isCollapsed) return;
-    final newText = controller.text.replaceRange(selection.start, selection.end, '');
+    final newText =
+        controller.text.replaceRange(selection.start, selection.end, '');
     controller.value = controller.value.copyWith(
       text: newText,
       selection: TextSelection.collapsed(offset: selection.start),
@@ -176,11 +229,21 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
   void _mostraMenuAggiungi(int index) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
-            const ListTile(title: Text("INSERISCI RIGA", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+            const ListTile(
+              title: Text(
+                "INSERISCI RIGA",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey,
+                ),
+              ),
+            ),
             _optionTile(index, "Testo sopra", TipoRiga.testo, true),
             _optionTile(index, "Testo sotto", TipoRiga.testo, false),
             const Divider(),
@@ -198,18 +261,26 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
   ListTile _optionTile(int index, String label, TipoRiga tipo, bool sopra) {
     return ListTile(
       leading: Icon(
-        tipo == TipoRiga.testo ? Icons.text_fields : tipo == TipoRiga.accordi ? Icons.music_note : Icons.space_bar, 
-        color: Colors.blue
+        tipo == TipoRiga.testo
+            ? Icons.text_fields
+            : tipo == TipoRiga.accordi
+                ? Icons.music_note
+                : Icons.space_bar,
+        color: Colors.blue,
       ),
       title: Text(label),
       onTap: () {
         Navigator.pop(context);
         setState(() {
           int pos = sopra ? index : index + 1;
-          _struttura.insert(pos, RigaOggetto(
-            tipo: tipo, 
-            controller: tipo == TipoRiga.testo ? BoldTextEditingController() : null
-          ));
+          _struttura.insert(
+            pos,
+            RigaOggetto(
+              tipo: tipo,
+              controller:
+                  tipo == TipoRiga.testo ? BoldTextEditingController() : null,
+            ),
+          );
         });
       },
     );
@@ -227,12 +298,15 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
     String? risultato = await _mostraDialogInputAccordo("");
     if (risultato != null && risultato.isNotEmpty) {
       setState(() {
-        _struttura[index].accordi.add(ChordInstance(text: risultato, x: x));
+        _struttura[index].accordi.add(
+              ChordInstance(text: risultato, x: x),
+            );
       });
     }
   }
 
-  void _mostraMenuAccordo(ChordInstance chord, int lineIndex, int chordIndex) {
+  void _mostraMenuAccordo(
+      ChordInstance chord, int lineIndex, int chordIndex) {
     setState(() {
       _selectedChord = chord;
       _selectedLineIndex = lineIndex;
@@ -253,7 +327,10 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Elimina accordo', style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Elimina accordo',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _eliminaAccordo();
@@ -309,7 +386,7 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
                     autofocus: true,
                     textCapitalization: TextCapitalization.sentences,
                     style: const TextStyle(
-                      fontFamily: "monospace",
+                      fontFamily: "RobotoMono",
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
                       color: Colors.blue,
@@ -520,33 +597,37 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
   void _salvaProcesso({required bool isBozza, bool isAutomatico = false}) async {
     final prefs = await SharedPreferences.getInstance();
     StringBuffer testoPiano = StringBuffer();
-    Map<String, double> offsetsMap = {};
+    Map<String, dynamic> offsetsMap = {}; 
     const double charWidth = 10.6; 
 
     for (int i = 0; i < _struttura.length; i++) {
       final riga = _struttura[i];
+
       if (riga.tipo == TipoRiga.accordi) {
         if (riga.accordi.isEmpty) {
-          testoPiano.writeln("");
+          testoPiano.writeln("[AC]");
           continue;
         }
         riga.accordi.sort((a, b) => a.x.compareTo(b.x)); 
-        String rigaCostruita = "[AC]";
+        
+        String rigaCostruita = "[AC]"; 
         double currentX = 0;
 
         for (int c = 0; c < riga.accordi.length; c++) {
           final chord = riga.accordi[c];
           int spaces = ((chord.x - currentX) / charWidth).floor();
           if (spaces < 0) spaces = 1;
-          String finalChordText = chord.text;
-          rigaCostruita += (" " * spaces) + finalChordText;
-          currentX = chord.x + (finalChordText.length * charWidth);
+          
+          rigaCostruita += (" " * spaces) + chord.text;
+          currentX = chord.x + (chord.text.length * charWidth);
           offsetsMap['0-$i-$c'] = chord.x;
         }
         testoPiano.writeln(rigaCostruita);
-      } else if (riga.tipo == TipoRiga.testo) {
+      } 
+      else if (riga.tipo == TipoRiga.testo) {
         testoPiano.writeln(riga.controller.text);
-      } else {
+      } 
+      else {
         testoPiano.writeln(""); 
       }
     }
@@ -559,6 +640,7 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
       'trasposizione': 0,
       'offsets': offsetsMap,
       'is_local': true,
+      'is_manual': true,
       'righe': _struttura.map((r) => {
         'tipo': r.tipo.name,
         'testo': r.tipo == TipoRiga.testo ? r.controller.text : "",
@@ -590,7 +672,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen> with Widg
       await prefs.setStringList("bozze", bozzeList);
     }
 
-    // Naviga solo se non è un salvataggio automatico (background)
     if (!isAutomatico && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isBozza ? "Salvato nelle Bozze!" : "Spostato in Scaletta!"))

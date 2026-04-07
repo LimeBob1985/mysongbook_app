@@ -46,32 +46,32 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   // -------------------------------------------------------------
   // CARICAMENTO FILE DALLA CARTELLA LOCALE
   // -------------------------------------------------------------
-Future<void> _caricaFileDaCartella() async {
-  final files = await FileStorageService.loadAllSongs();
-  bool modifiche = false;
+  Future<void> _caricaFileDaCartella() async {
+    final files = await FileStorageService.loadAllSongs();
+    bool modifiche = false;
 
-  for (final song in files) {
-    // 🔥 Se il brano è negli eliminati, NON aggiungerlo in scaletta
-    bool isEliminato = eliminati.any(
-      (e) => e["titolo"] == song["titolo"] && e["artista"] == song["artista"],
-    );
-    if (isEliminato) continue;
+    for (final song in files) {
+      // 🔥 Se il brano è negli eliminati, NON aggiungerlo in scaletta
+      bool isEliminato = eliminati.any(
+        (e) => (e["titolo"] ?? "") == (song["titolo"] ?? "") && (e["artista"] ?? "") == (song["artista"] ?? ""),
+      );
+      if (isEliminato) continue;
 
-    bool esiste = scaletta.any(
-      (b) => b["titolo"] == song["titolo"] && b["artista"] == song["artista"],
-    );
+      bool esiste = scaletta.any(
+        (b) => (b["titolo"] ?? "") == (song["titolo"] ?? "") && (b["artista"] ?? "") == (song["artista"] ?? ""),
+      );
 
-    if (!esiste) {
-      scaletta.add(song);
-      modifiche = true;
+      if (!esiste) {
+        scaletta.add(song);
+        modifiche = true;
+      }
+    }
+
+    if (modifiche) {
+      _ordinaEAggiorna();
+      await _salvaListe();
     }
   }
-
-  if (modifiche) {
-    _ordinaEAggiorna();
-    await _salvaListe();
-  }
-}
 
   // -------------------------------------------------------------
   // CARICAMENTO LISTE DA SHAREDPREFERENCES
@@ -83,17 +83,13 @@ Future<void> _caricaFileDaCartella() async {
 
     setState(() {
       scaletta = listaScaletta.map<Map<String, dynamic>>((e) {
-        final Map<String, dynamic> data = jsonDecode(e);
-
-        // Mapping richiesto
-        String testoRecuperato =
-            data["testo"] ?? data["testo_originale"] ?? data["content"] ?? "";
-        return {
-          "titolo": data["titolo"] ?? data["title"] ?? "Senza Titolo",
-          "artista": data["artista"] ?? data["artist"] ?? "Artista Sconosciuto",
-          "testo": testoRecuperato,
-          "trasposizione": data["trasposizione"] ?? 0,
-        };
+        Map<String, dynamic> data = jsonDecode(e);
+        // Protezione dati: ci assicuriamo che le chiavi esistano
+        data["titolo"] ??= "Senza Titolo";
+        data["artista"] ??= "";
+        data["testo"] ??= "";
+        data["trasposizione"] ??= 0;
+        return data;
       }).toList();
 
       eliminati =
@@ -124,9 +120,11 @@ Future<void> _caricaFileDaCartella() async {
   // -------------------------------------------------------------
   void _ordinaEAggiorna() {
     setState(() {
-      scaletta.sort((a, b) => (a["titolo"] as String)
-          .toLowerCase()
-          .compareTo((b["titolo"] as String).toLowerCase()));
+      scaletta.sort((a, b) {
+        String titA = (a["titolo"] ?? "").toString().toLowerCase();
+        String titB = (b["titolo"] ?? "").toString().toLowerCase();
+        return titA.compareTo(titB);
+      });
       scalettaFiltrata = List.from(scaletta);
     });
   }
@@ -149,8 +147,8 @@ Future<void> _caricaFileDaCartella() async {
     }
     setState(() {
       scalettaFiltrata = scaletta.where((brano) {
-        final titolo = brano["titolo"].toString().toLowerCase();
-        final artista = brano["artista"].toString().toLowerCase();
+        final titolo = (brano["titolo"] ?? "").toString().toLowerCase();
+        final artista = (brano["artista"] ?? "").toString().toLowerCase();
         return titolo.contains(query.toLowerCase()) ||
             artista.contains(query.toLowerCase());
       }).toList();
@@ -161,20 +159,17 @@ Future<void> _caricaFileDaCartella() async {
   // ELIMINAZIONE (sposta in Eliminati)
   // -------------------------------------------------------------
   Future<void> _eliminaBrano(int indexFiltrato) async {
-  final brano = scalettaFiltrata[indexFiltrato];
+    final brano = scalettaFiltrata[indexFiltrato];
 
-  setState(() {
-    scaletta.remove(brano);
-    scalettaFiltrata.removeAt(indexFiltrato);
-    eliminati.add(brano);
-  });
+    setState(() {
+      scaletta.remove(brano);
+      scalettaFiltrata.removeAt(indexFiltrato);
+      eliminati.add(brano);
+    });
 
-  // 🔥 Salva solo le liste, NON toccare i file fisici
-  await _salvaListe();
-
-  // ❌ NON eliminare il file fisico
-  // ❌ NON risalvare tutti i file
-}
+    // 🔥 Salva solo le liste, NON toccare i file fisici
+    await _salvaListe();
+  }
 
   // -------------------------------------------------------------
   // SCROLL LETTERE
@@ -184,17 +179,19 @@ Future<void> _caricaFileDaCartella() async {
     double offset = _scrollController.offset;
     int index = (offset / 72).floor();
     if (index >= 0 && index < scalettaFiltrata.length) {
-      String primaLettera =
-          scalettaFiltrata[index]["titolo"][0].toUpperCase();
-      if (alfabeto.contains(primaLettera) && letteraAttiva != primaLettera) {
-        setState(() => letteraAttiva = primaLettera);
+      String tit = (scalettaFiltrata[index]["titolo"] ?? "").toString();
+      if (tit.isNotEmpty) {
+        String primaLettera = tit[0].toUpperCase();
+        if (alfabeto.contains(primaLettera) && letteraAttiva != primaLettera) {
+          setState(() => letteraAttiva = primaLettera);
+        }
       }
     }
   }
 
   void _saltaALettera(String lettera) {
     int index = scalettaFiltrata.indexWhere(
-        (b) => b["titolo"].toString().toUpperCase().startsWith(lettera));
+        (b) => (b["titolo"] ?? "").toString().toUpperCase().startsWith(lettera));
     if (index != -1) {
       _scrollController.jumpTo(index * 72.0);
       setState(() => letteraAttiva = lettera);
@@ -202,12 +199,12 @@ Future<void> _caricaFileDaCartella() async {
   }
 
   // -------------------------------------------------------------
-  // RINOMINA
+  // RINOMINA (Corretta per preservare i dati e sincronizzare il device)
   // -------------------------------------------------------------
   void _mostraDialogRinomina(int indexFiltrato) {
     final brano = scalettaFiltrata[indexFiltrato];
-    final tC = TextEditingController(text: brano["titolo"]);
-    final aC = TextEditingController(text: brano["artista"]);
+    final tC = TextEditingController(text: brano["titolo"] ?? "");
+    final aC = TextEditingController(text: brano["artista"] ?? "");
 
     showDialog(
       context: context,
@@ -240,13 +237,35 @@ Future<void> _caricaFileDaCartella() async {
                   style: TextStyle(color: Colors.white70))),
           TextButton(
             onPressed: () async {
+              String vecchioTitolo = brano["titolo"] ?? "";
+              String vecchioArtista = brano["artista"] ?? "";
+              String nuovoTitolo = tC.text.trim();
+              String nuovoArtista = aC.text.trim();
+
               setState(() {
                 int idx = scaletta.indexOf(brano);
                 if (idx != -1) {
-                  scaletta[idx]["titolo"] = tC.text.trim();
-                  scaletta[idx]["artista"] = aC.text.trim();
+                  // Aggiorniamo solo i nomi, preservando il resto della mappa (testo, righe, accordi)
+                  scaletta[idx]["titolo"] = nuovoTitolo;
+                  scaletta[idx]["artista"] = nuovoArtista;
                 }
               });
+
+              // 1. Rinomina il file fisico sul device
+              await FileStorageService.renameSong(
+                vecchioTitolo, 
+                vecchioArtista, 
+                nuovoTitolo, 
+                nuovoArtista
+              );
+
+              // 2. Salva il file fisico con i nuovi dati completi
+              int updatedIdx = scaletta.indexWhere((b) => b["titolo"] == nuovoTitolo && b["artista"] == nuovoArtista);
+              if(updatedIdx != -1) {
+                await FileStorageService.saveSong(scaletta[updatedIdx]);
+              }
+
+              // 3. Aggiorna le SharedPreferences
               _ordinaEAggiorna();
               await _salvaListe();
             
@@ -444,19 +463,16 @@ Future<void> _caricaFileDaCartella() async {
                     itemCount: scalettaFiltrata.length,
                     itemBuilder: (context, index) {
                       final brano = scalettaFiltrata[index];
+                      String tit = (brano["titolo"] ?? "").toString();
 
-                      String letteraCorrente =
-                          brano["titolo"][0].toUpperCase();
+                      String letteraCorrente = tit.isNotEmpty ? tit[0].toUpperCase() : "?";
                       bool mostraLettera = false;
                       if (index == 0) {
                         mostraLettera = true;
                       } else {
-                        String letteraPrecedente =
-                            scalettaFiltrata[index - 1]
-                                    ["titolo"][0]
-                                .toUpperCase();
-                        if (letteraCorrente !=
-                            letteraPrecedente) {
+                        String titPrec = (scalettaFiltrata[index - 1]["titolo"] ?? "").toString();
+                        String letteraPrecedente = titPrec.isNotEmpty ? titPrec[0].toUpperCase() : "?";
+                        if (letteraCorrente != letteraPrecedente) {
                           mostraLettera = true;
                         }
                       }
@@ -528,13 +544,13 @@ Future<void> _caricaFileDaCartella() async {
                                           color: Colors.amber,
                                           shape: BoxShape
                                               .circle)),
-                              title: Text(brano["titolo"],
+                              title: Text(tit,
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight:
                                           FontWeight.bold)),
                               subtitle: Text(
-                                  brano["artista"],
+                                  (brano["artista"] ?? "").toString(),
                                   style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 13)),
@@ -547,16 +563,10 @@ Future<void> _caricaFileDaCartella() async {
                                     MaterialPageRoute(
                                         builder: (_) =>
                                             LetturaSpartitoScreen(
-                                              titolo: brano[
-                                                  "titolo"],
-                                              artista: brano[
-                                                  "artista"],
-                                              testoCompleto:
-                                                  brano[
-                                                      "testo"],
-                                              trasposizione:
-                                                  brano[
-                                                      "trasposizione"],
+                                              titolo: brano["titolo"] ?? "",
+                                              artista: brano["artista"] ?? "",
+                                              testoCompleto: brano["testo"] ?? "",
+                                              trasposizione: brano["trasposizione"] ?? 0,
                                             ))).then((_) =>
                                     _caricaListe());
                               },
@@ -568,7 +578,7 @@ Future<void> _caricaFileDaCartella() async {
                   ),
                 ),
 
-                // --- SCROLLBAR ALFABETICA CON GESTIONE DRAG ---
+                // --- SCROLLBAR ALFABETICA ---
                 Container(
                   width: 32,
                   padding:
@@ -623,8 +633,7 @@ Future<void> _caricaFileDaCartella() async {
                                                 0.7),
                                     fontWeight: isActive
                                         ? FontWeight.bold
-                                        : FontWeight
-                                            .normal,
+                                        : FontWeight.normal,
                                     fontSize: isActive
                                         ? 14
                                         : 10,

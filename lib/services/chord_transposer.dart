@@ -7,13 +7,13 @@ class ChordTransposer {
   ];
 
   static const Map<String, String> itToEn = {
-    "DO": "C", "DO#": "C#", "DOb": "B", 
-    "RE": "D", "RE#": "D#", "REb": "C#", 
+    "DO": "C", "DO#": "C#", "DOb": "B",
+    "RE": "D", "RE#": "D#", "REb": "C#",
     "MI": "E", "MI#": "F", "MIb": "D#",
     "FA": "F", "FA#": "F#", "FAb": "E",
-    "SOL": "G", "SOL#": "G#", "SOLb": "F#", 
-    "LA": "A", "LA#": "A#", "LAb": "G#", 
-    "SI": "B", "SI#": "C", "SIb": "A#", 
+    "SOL": "G", "SOL#": "G#", "SOLb": "F#",
+    "LA": "A", "LA#": "A#", "LAb": "G#",
+    "SI": "B", "SI#": "C", "SIb": "A#",
   };
 
   static const Map<String, String> enToItSharp = {
@@ -37,24 +37,22 @@ class ChordTransposer {
   static bool _isLikelyText(String chord) {
     String clean = chord.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
     const textOnly = {"mi", "la", "si", "re", "fa", "do", "sol", "ma", "di", "per", "chi", "con"};
-    
+
     if (textOnly.contains(clean)) {
       return !chord.contains(RegExp(r'[0-9#bmM+°\(\)/]'));
     }
     return false;
   }
 
-  // Analizza il brano originale per decidere se usare la scala Flat o Sharp
   static bool _shouldPreferFlats(String text) {
     int flatCount = RegExp(r'[A-G]b|SIb|LAb|SOLb|MIb|REb').allMatches(text).length;
     int sharpCount = '#'.allMatches(text).length;
     return flatCount > sharpCount;
   }
 
-  // MODIFICA: Riceve preferFlats come scelta fissa per tutto il brano
   static String transposeChord(String chord, int semitones, bool preferFlats) {
     if (chord.isEmpty) return chord;
-    
+
     if (chord.contains("/")) {
       return chord.split("/")
           .map((part) => transposeChord(part.trim(), semitones, preferFlats))
@@ -62,28 +60,28 @@ class ChordTransposer {
     }
 
     final match = RegExp(
-      r'^(DO|RE|MI|FA|SOL|LA|SI|[A-G])([#b]*)', 
+      r'^(DO|RE|MI|FA|SOL|LA|SI|[A-G])([#b]*)',
       caseSensitive: false,
     ).firstMatch(chord);
 
     if (match == null) return chord;
 
     String rawRoot = match.group(1)!.toUpperCase();
-    String rawAlter = (match.group(2) ?? ""); 
-    
+    String rawAlter = (match.group(2) ?? "");
+
     String rootFound = rawRoot + rawAlter;
-    String suffix = chord.substring(match.end); 
+    String suffix = chord.substring(match.end);
 
     String? enRoot = itToEn[rootFound];
-    
+
     if (enRoot == null) {
-        String upperRoot = rootFound.toUpperCase();
-        if (upperRoot == "DB") enRoot = "C#";
-        else if (upperRoot == "EB") enRoot = "D#";
-        else if (upperRoot == "GB") enRoot = "F#";
-        else if (upperRoot == "AB") enRoot = "G#";
-        else if (upperRoot == "BB") enRoot = "A#";
-        else if (chromatic.contains(upperRoot)) enRoot = upperRoot;
+      String upperRoot = rootFound.toUpperCase();
+      if (upperRoot == "DB") enRoot = "C#";
+      else if (upperRoot == "EB") enRoot = "D#";
+      else if (upperRoot == "GB") enRoot = "F#";
+      else if (upperRoot == "AB") enRoot = "G#";
+      else if (upperRoot == "BB") enRoot = "A#";
+      else if (chromatic.contains(upperRoot)) enRoot = upperRoot;
     }
 
     if (enRoot == null) return chord;
@@ -96,10 +94,9 @@ class ChordTransposer {
     final newEn = chromatic[normalizedNewIdx];
 
     final isIt = _isItalianRoot(match.group(1)!);
-    
+
     String newRoot;
     if (isIt) {
-      // Usa la preferenza globale passata dalla funzione principale
       if (preferFlats) {
         newRoot = enToItFlat[newEn] ?? enToItSharp[newEn] ?? newEn;
       } else {
@@ -121,51 +118,66 @@ class ChordTransposer {
     return newRoot + suffix;
   }
 
-  // TRASPOSE TEXT: La logica ora è basata sulla preferenza globale del brano
+  // 🔥 VERSIONE BLINDATA: trasponi SOLO righe marcate con [AC]
   static String transposeText(String originalText, int totalSemitones) {
     if (originalText.isEmpty) return originalText;
     if (totalSemitones == 0) return originalText;
 
-    // Determiniamo la famiglia armonica una volta sola dal testo ORIGINALE
     final bool globalPreferFlats = _shouldPreferFlats(originalText);
 
     final lines = originalText.split('\n');
     List<String> processedLines = [];
 
     for (var line in lines) {
-      if (ChordUtils.isPureChordLine(line)) {
-        String newLine = "";
-        int lastOriginalPos = 0;
-        
-        final matches = ChordUtils.chordRegex.allMatches(line).toList();
+      final trimmed = line.trim();
 
-        for (var m in matches) {
-          newLine += line.substring(lastOriginalPos, m.start);
-          String originalChord = m.group(0)!;
-
-          if (_isLikelyText(originalChord)) {
-            newLine += originalChord;
-          } else {
-            // Passiamo la preferenza globale dell'intero brano
-            String transposed = transposeChord(originalChord, totalSemitones, globalPreferFlats);
-            newLine += transposed;
-
-            int lengthDiff = originalChord.length - transposed.length;
-            if (lengthDiff > 0) {
-              newLine += " " * lengthDiff;
-            }
-          }
-          lastOriginalPos = m.end;
-        }
-        
-        if (lastOriginalPos < line.length) {
-          newLine += line.substring(lastOriginalPos);
-        }
-        processedLines.add(newLine);
-      } else {
+      // ❌ NON È UNA RIGA ACCORDI → NON TOCCARE
+      if (!trimmed.startsWith("[AC]")) {
         processedLines.add(line);
+        continue;
       }
+
+      // 🔎 Estrai contenuto dopo [AC]
+      final int tagIndex = line.indexOf("[AC]");
+      final String prefix = line.substring(0, tagIndex + 4);
+      String content = line.substring(tagIndex + 4);
+
+      if (content.trim().isEmpty) {
+        processedLines.add(line);
+        continue;
+      }
+
+      String newContent = "";
+      int lastOriginalPos = 0;
+
+      final matches = ChordUtils.chordRegex.allMatches(content).toList();
+
+      for (var m in matches) {
+        newContent += content.substring(lastOriginalPos, m.start);
+        String originalChord = m.group(0)!;
+
+        if (_isLikelyText(originalChord)) {
+          newContent += originalChord;
+        } else {
+          String transposed =
+              transposeChord(originalChord, totalSemitones, globalPreferFlats);
+          newContent += transposed;
+
+          int lengthDiff = originalChord.length - transposed.length;
+          if (lengthDiff > 0) {
+            newContent += " " * lengthDiff;
+          }
+        }
+        lastOriginalPos = m.end;
+      }
+
+      if (lastOriginalPos < content.length) {
+        newContent += content.substring(lastOriginalPos);
+      }
+
+      processedLines.add(prefix + newContent);
     }
+
     return processedLines.join('\n');
   }
 }

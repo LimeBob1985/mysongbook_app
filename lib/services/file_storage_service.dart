@@ -32,6 +32,26 @@ class FileStorageService {
     return "${safeTitle}_${safeArtist}.mysongbook";
   }
 
+  /// Rinomina fisicamente un file sul disco quando cambiano titolo o artista
+  static Future<void> renameSong(String vecchioTitolo, String vecchioArtista, String nuovoTitolo, String nuovoArtista) async {
+    try {
+      final dir = await getFolder();
+      
+      final oldFileName = _getFileName({"titolo": vecchioTitolo, "artista": vecchioArtista});
+      final newFileName = _getFileName({"titolo": nuovoTitolo, "artista": nuovoArtista});
+      
+      final oldFile = File("${dir.path}/$oldFileName");
+      final newFile = File("${dir.path}/$newFileName");
+
+      if (await oldFile.exists() && oldFileName != newFileName) {
+        await oldFile.rename(newFile.path);
+        print("📝 File rinominato da $oldFileName a $newFileName");
+      }
+    } catch (e) {
+      print("❌ Errore durante la rinomina del file: $e");
+    }
+  }
+
   /// Salva un singolo brano come file .mysongbook
   static Future<void> saveSong(Map<String, dynamic> song) async {
     try {
