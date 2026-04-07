@@ -14,16 +14,22 @@ class FileStorageService {
     return dir;
   }
 
-  /// Genera un nome file sicuro combinando titolo e artista
+  /// Genera un nome file stabile e prevedibile
   static String _getFileName(Map<String, dynamic> song) {
-    final titolo = (song["titolo"] ?? "SenzaTitolo").toString().trim();
-    final artista = (song["artista"] ?? "Ignoto").toString().trim();
+    final titolo = (song["titolo"] ?? "senza_titolo").toString().toLowerCase();
+    final artista = (song["artista"] ?? "sconosciuto").toString().toLowerCase();
 
-    // Rimuove caratteri non validi per i nomi file su iOS/Android
-    final safeName = "${titolo}_$artista"
-        .replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), "_");
+    String normalize(String input) {
+      return input
+          .replaceAll(RegExp(r'[^a-z0-9]+'), "_")
+          .replaceAll(RegExp(r'_+'), "_")
+          .replaceAll(RegExp(r'^_|_$'), "");
+    }
 
-    return "$safeName.mysongbook";
+    final safeTitle = normalize(titolo);
+    final safeArtist = normalize(artista);
+
+    return "${safeTitle}_${safeArtist}.mysongbook";
   }
 
   /// Salva un singolo brano come file .mysongbook
@@ -31,8 +37,11 @@ class FileStorageService {
     try {
       final dir = await getFolder();
       final fileName = _getFileName(song);
-      final file = File("${dir.path}/$fileName");
 
+      // Salviamo il nome file dentro il JSON
+      song["fileName"] = fileName;
+
+      final file = File("${dir.path}/$fileName");
       await file.writeAsString(jsonEncode(song), flush: true);
 
       print("📁 Salvato: ${file.path}");
@@ -55,7 +64,6 @@ class FileStorageService {
             final content = await entity.readAsString();
             final Map<String, dynamic> decoded = jsonDecode(content);
 
-            // Mapping uniforme e compatibile con ScalettaScreen
             final testo = decoded["testo"]
                 ?? decoded["testo_originale"]
                 ?? decoded["content"]
@@ -67,9 +75,12 @@ class FileStorageService {
               "testo": testo,
               "trasposizione": decoded["trasposizione"] ?? 0,
 
-              // Manteniamo questi campi se presenti
+              // Manteniamo eventuali campi extra
               "righe": decoded["righe"],
               "struttura_completa": decoded["struttura_completa"],
+
+              // Nome file reale
+              "fileName": entity.path.split("/").last,
             });
           } catch (e) {
             print("❌ Errore parsing file ${entity.path}: $e");
@@ -84,18 +95,52 @@ class FileStorageService {
     }
   }
 
-  /// Elimina fisicamente un file .mysongbook
+  /// Elimina fisicamente un file .mysongbook (anche legacy)
   static Future<void> deleteSong(Map<String, dynamic> song) async {
     try {
       final dir = await getFolder();
-      final fileName = _getFileName(song);
-      final file = File("${dir.path}/$fileName");
 
-      if (await file.exists()) {
-        await file.delete();
-        print("🗑️ Eliminato: ${file.path}");
+      // 1) Tentativo normale: usa fileName se presente, altrimenti _getFileName
+      final primaryFileName = song["fileName"] ?? _getFileName(song);
+      final primaryFile = File("${dir.path}/$primaryFileName");
+
+      bool deletedSomething = false;
+
+      if (await primaryFile.exists()) {
+        await primaryFile.delete();
+        print("🗑️ Eliminato (primary): ${primaryFile.path}");
+        deletedSomething = true;
       } else {
-        print("ℹ️ Nessun file da eliminare: ${file.path}");
+        print("ℹ️ File primary non trovato: ${primaryFile.path}");
+      }
+
+      // 2) FALLBACK: cerca QUALSIASI file .mysongbook con stesso titolo/artista
+      final entities = dir.listSync();
+      for (final entity in entities) {
+        if (entity is File && entity.path.endsWith(".mysongbook")) {
+          try {
+            final content = await entity.readAsString();
+            final decoded = jsonDecode(content);
+
+            final titoloFile =
+                (decoded["titolo"] ?? decoded["title"] ?? "").toString();
+            final artistaFile =
+                (decoded["artista"] ?? decoded["artist"] ?? "").toString();
+
+            if (titoloFile == (song["titolo"] ?? "") &&
+                artistaFile == (song["artista"] ?? "")) {
+              await entity.delete();
+              print("🗑️ Eliminato (fallback match titolo/artista): ${entity.path}");
+              deletedSomething = true;
+            }
+          } catch (e) {
+            print("❌ Errore lettura file in fallback delete: $e");
+          }
+        }
+      }
+
+      if (!deletedSomething) {
+        print("ℹ️ Nessun file eliminato per il brano: ${song["titolo"]} - ${song["artista"]}");
       }
     } catch (e) {
       print("❌ Errore eliminazione file: $e");

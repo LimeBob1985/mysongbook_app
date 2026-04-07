@@ -29,8 +29,9 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     final lista = prefs.getStringList("eliminati") ?? [];
 
     setState(() {
-      eliminati =
-          lista.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+      eliminati = lista
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
 
       eliminati.sort((a, b) =>
           (a["titolo"] ?? "").toString().compareTo((b["titolo"] ?? "").toString()));
@@ -43,27 +44,28 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
       final prefs = await SharedPreferences.getInstance();
       final brano = eliminati[index];
 
+      // 1) rimuovi dagli eliminati
       setState(() {
         eliminati.removeAt(index);
       });
 
-      final listaDest = prefs.getStringList("scaletta") ?? [];
-      List<Map<String, dynamic>> listaRecuperata =
-          listaDest.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+      await prefs.setStringList(
+        "eliminati",
+        eliminati.map((e) => jsonEncode(e)).toList(),
+      );
 
-      listaRecuperata.add(brano);
+      // 2) ripristina in scaletta
+      final listaScaletta = prefs.getStringList("scaletta") ?? [];
+      List<Map<String, dynamic>> scaletta =
+          listaScaletta.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
 
-      listaRecuperata.sort((a, b) =>
+      scaletta.add(brano);
+      scaletta.sort((a, b) =>
           (a["titolo"] ?? "").toString().compareTo((b["titolo"] ?? "").toString()));
 
       await prefs.setStringList(
         "scaletta",
-        listaRecuperata.map((e) => jsonEncode(e)).toList(),
-      );
-
-      await prefs.setStringList(
-        "eliminati",
-        eliminati.map((e) => jsonEncode(e)).toList(),
+        scaletta.map((e) => jsonEncode(e)).toList(),
       );
 
       debugPrint("Brano ripristinato correttamente.");
@@ -72,27 +74,53 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     }
   }
 
-  // ELIMINAZIONE DEFINITIVA (anche file fisico)
+  // ELIMINAZIONE DEFINITIVA (file + tutte le liste)
   Future<void> _eliminaDefinitivamente(int index) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final brano = eliminati[index];
 
-      // 1) elimina file fisico
+      // 1) elimina file fisico dall’iPhone
       await FileStorageService.deleteSong(brano);
 
-      // 2) rimuovi dalla lista
+      // 2) rimuovi dagli eliminati
       setState(() {
         eliminati.removeAt(index);
       });
 
-      // 3) salva lista aggiornata
+      // 3) rimuovi dalla scaletta
+      final listaScaletta = prefs.getStringList("scaletta") ?? [];
+      List<Map<String, dynamic>> scaletta =
+          listaScaletta.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+
+      scaletta.removeWhere((s) =>
+          s["titolo"] == brano["titolo"] && s["artista"] == brano["artista"]);
+
+      await prefs.setStringList(
+        "scaletta",
+        scaletta.map((e) => jsonEncode(e)).toList(),
+      );
+
+      // 4) rimuovi dalle bozze
+      final listaBozze = prefs.getStringList("bozze") ?? [];
+      List<Map<String, dynamic>> bozze =
+          listaBozze.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+
+      bozze.removeWhere((s) =>
+          s["titolo"] == brano["titolo"] && s["artista"] == brano["artista"]);
+
+      await prefs.setStringList(
+        "bozze",
+        bozze.map((e) => jsonEncode(e)).toList(),
+      );
+
+      // 5) salva eliminati aggiornati
       await prefs.setStringList(
         "eliminati",
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
 
-      debugPrint("Brano eliminato definitivamente + file cancellato.");
+      debugPrint("Brano eliminato definitivamente da tutte le liste + file cancellato.");
     } catch (e) {
       debugPrint("Errore eliminazione definitiva: $e");
     }
@@ -169,13 +197,16 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
           await FileStorageService.deleteSong(brano);
         }
 
+        // svuota tutte le liste
+        await prefs.setStringList("eliminati", []);
+        await prefs.setStringList("scaletta", []);
+        await prefs.setStringList("bozze", []);
+
         setState(() {
           eliminati.clear();
         });
 
-        await prefs.setStringList("eliminati", []);
-
-        debugPrint("Cestino svuotato + file cancellati.");
+        debugPrint("Cestino svuotato + file cancellati + liste pulite.");
       } catch (e) {
         debugPrint("Errore svuotamento cestino: $e");
       }

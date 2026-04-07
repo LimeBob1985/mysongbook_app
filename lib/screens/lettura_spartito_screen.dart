@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../utils/chord_utils.dart';
 import '../services/chord_transposer.dart';
+import '../services/file_storage_service.dart'; // Importato per il salvataggio fisico
 
 class BoldTextEditingController extends TextEditingController {
   static const String boldTag = '\u200D';
@@ -49,7 +50,7 @@ class LetturaSpartitoScreen extends StatefulWidget {
   State<LetturaSpartitoScreen> createState() => _LetturaSpartitoScreenState();
 }
 
-class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
+class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> with WidgetsBindingObserver {
   late int _trasposizione;
   late PageController _pageController;
   List<dynamic> _strutturaCompleta = [];
@@ -58,9 +59,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
   bool _initialized = false;
   late bool _preferFlats;
 
-  // Lista per gestire lo storico dell'Undo
   final List<String> _undoHistory = [];
-
   static const String boldTag = '\u200D';
 
   @override
@@ -70,9 +69,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     _caricaDati();
   }
 
-  // --- LOGICA UNDO ---
   void _saveSnapshot() {
-    // Salviamo lo stato corrente della struttura in formato JSON per l'undo
     final snapshot = jsonEncode(_strutturaCompleta.map((r) => {
       'tipo': r['tipo'],
       'testo': r['tipo'] == 'testo' && r['controller'] != null ? r['controller'].text : r['testo'],
@@ -81,7 +78,7 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     
     if (_undoHistory.isEmpty || _undoHistory.last != snapshot) {
       _undoHistory.add(snapshot);
-      if (_undoHistory.length > 30) _undoHistory.removeAt(0); // Limite storico
+      if (_undoHistory.length > 30) _undoHistory.removeAt(0);
     }
   }
 
@@ -367,16 +364,21 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
     };
 
     List<String> nuovaScaletta = scalettaStr.where((s) {
-      final b = jsonDecode(s);
-      return !(b["titolo"] == widget.titolo && b["artista"] == widget.artista);
+      try {
+        final b = jsonDecode(s);
+        return !(b["titolo"] == widget.titolo && b["artista"] == widget.artista);
+      } catch (e) { return true; }
     }).toList();
 
     nuovaScaletta.add(jsonEncode(branoAggiornato));
     await prefs.setStringList("scaletta", nuovaScaletta);
 
+    // APPLICAZIONE DELLA REGOLA SACRA: Salvataggio fisico e sovrascrittura file esterna
+    await FileStorageService.saveSong(branoAggiornato);
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Modifiche salvate!"), duration: Duration(seconds: 1))
+          const SnackBar(content: Text("Modifiche salvate e file aggiornato!"), duration: Duration(seconds: 1))
       );
     }
   }
@@ -507,7 +509,6 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           Expanded(
             child: PageView.builder(
               controller: _pageController,
-              // BLOCCO SWIPE IN MODALITA MODIFICA
               physics: _isEditing ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics(),
               itemCount: _pagine.length,
               itemBuilder: (context, pIdx) => _buildPagina(pIdx),
@@ -677,10 +678,6 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
           isDense: true, 
           contentPadding: const EdgeInsets.symmetric(vertical: 8)
         ),
-        onChanged: (val) {
-          // Nota: lo snapshot qui potrebbe essere troppo frequente. 
-          // Idealmente lo snapshot si fa all'inizio del focus o azioni discrete.
-        },
         contextMenuBuilder: (context, editableTextState) {
           return TextSelectionToolbar(
             anchorAbove: editableTextState.contextMenuAnchors.primaryAnchor,
@@ -733,21 +730,19 @@ class _LetturaSpartitoScreenState extends State<LetturaSpartitoScreen> {
         children: [
           _circleButton("-", () => _trasponi(-1), Colors.grey.shade700, "Abbassa"),
           const SizedBox(width: 12),
-          ... [
-            Container(
-              width: 50, height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.black26)
-              ),
-              child: Text(
-                _trasposizione > 0 ? "+$_trasposizione" : _trasposizione.toString(),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-              ),
+          Container(
+            width: 50, height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.black26)
             ),
-          ],
+            child: Text(
+              _trasposizione > 0 ? "+$_trasposizione" : _trasposizione.toString(),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+            ),
+          ),
           const SizedBox(width: 12),
           _circleButton("+", () => _trasponi(1), Colors.green.shade600, "Alza"),
         ],

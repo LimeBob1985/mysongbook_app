@@ -46,23 +46,32 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   // -------------------------------------------------------------
   // CARICAMENTO FILE DALLA CARTELLA LOCALE
   // -------------------------------------------------------------
-  Future<void> _caricaFileDaCartella() async {
-    final files = await FileStorageService.loadAllSongs();
-    bool modifiche = false;
-    for (final song in files) {
-      bool esiste = scaletta.any(
-        (b) => b["titolo"] == song["titolo"] && b["artista"] == song["artista"],
-      );
-      if (!esiste) {
-        scaletta.add(song);
-        modifiche = true;
-      }
-    }
-    if (modifiche) {
-      _ordinaEAggiorna();
-      await _salvaListe();
+Future<void> _caricaFileDaCartella() async {
+  final files = await FileStorageService.loadAllSongs();
+  bool modifiche = false;
+
+  for (final song in files) {
+    // 🔥 Se il brano è negli eliminati, NON aggiungerlo in scaletta
+    bool isEliminato = eliminati.any(
+      (e) => e["titolo"] == song["titolo"] && e["artista"] == song["artista"],
+    );
+    if (isEliminato) continue;
+
+    bool esiste = scaletta.any(
+      (b) => b["titolo"] == song["titolo"] && b["artista"] == song["artista"],
+    );
+
+    if (!esiste) {
+      scaletta.add(song);
+      modifiche = true;
     }
   }
+
+  if (modifiche) {
+    _ordinaEAggiorna();
+    await _salvaListe();
+  }
+}
 
   // -------------------------------------------------------------
   // CARICAMENTO LISTE DA SHAREDPREFERENCES
@@ -111,15 +120,6 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   }
 
   // -------------------------------------------------------------
-  // SALVATAGGIO SU FILE ESTERNI
-  // -------------------------------------------------------------
-  Future<void> _salvaFileEsterni() async {
-    for (final song in scaletta) {
-      await FileStorageService.saveSong(song);
-    }
-  }
-
-  // -------------------------------------------------------------
   // ORDINAMENTO
   // -------------------------------------------------------------
   void _ordinaEAggiorna() {
@@ -161,17 +161,20 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
   // ELIMINAZIONE (sposta in Eliminati)
   // -------------------------------------------------------------
   Future<void> _eliminaBrano(int indexFiltrato) async {
-    final brano = scalettaFiltrata[indexFiltrato];
+  final brano = scalettaFiltrata[indexFiltrato];
 
-    setState(() {
-      scaletta.remove(brano);
-      scalettaFiltrata.removeAt(indexFiltrato);
-      eliminati.add(brano);
-    });
+  setState(() {
+    scaletta.remove(brano);
+    scalettaFiltrata.removeAt(indexFiltrato);
+    eliminati.add(brano);
+  });
 
-    await _salvaListe();
-    await _salvaFileEsterni();
-  }
+  // 🔥 Salva solo le liste, NON toccare i file fisici
+  await _salvaListe();
+
+  // ❌ NON eliminare il file fisico
+  // ❌ NON risalvare tutti i file
+}
 
   // -------------------------------------------------------------
   // SCROLL LETTERE
@@ -246,7 +249,7 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
               });
               _ordinaEAggiorna();
               await _salvaListe();
-              await _salvaFileEsterni();
+            
               if (!context.mounted) return;
               Navigator.pop(context);
             },

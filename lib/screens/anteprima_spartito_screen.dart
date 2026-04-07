@@ -43,7 +43,7 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Inizia a osservare lo stato dell'app
+    WidgetsBinding.instance.addObserver(this); 
     testoOriginale = widget.testoOriginale;
     trasposizione = widget.trasposizioneIniziale;
     righeOriginali = testoOriginale.split('\n');
@@ -54,13 +54,12 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Rimuove l'osservatore
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Se l'app viene chiusa o messa in background su iPhone, salviamo subito
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _salvaInScaletta(automatico: true);
     }
@@ -124,16 +123,20 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
 
     List<Map<String, dynamic>> strutturaCompleta = [];
     for (int i = 0; i < righeOriginali.length; i++) {
+      String rigaCorrente = righeOriginali[i];
+      
       if (rigaEAccordo[i]) {
+        // Se è riga d'accordi, salviamo gli oggetti accordo ma NON perdiamo il riferimento al testo originale
         strutturaCompleta.add({
           'tipo': 'accordi',
-          'testo': '',
+          'testo': rigaCorrente, // Mantengo il testo originale per coerenza
           'accordi': accordiPosizionati[i] ?? [],
         });
       } else {
+        // Se è riga di testo, salviamo il testo normale
         strutturaCompleta.add({
-          'tipo': righeOriginali[i].trim().isEmpty ? 'vuota' : 'testo',
-          'testo': righeOriginali[i],
+          'tipo': rigaCorrente.trim().isEmpty ? 'vuota' : 'testo',
+          'testo': rigaCorrente,
           'accordi': [],
         });
       }
@@ -142,6 +145,7 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
     final Map<String, dynamic> brano = {
       "titolo": widget.titolo,
       "artista": widget.artista,
+      "testo": testoOriginale, // Campo standard per ScalettaScreen
       "testo_originale": testoOriginale,
       "trasposizione": trasposizione,
       "struttura_completa": strutturaCompleta,
@@ -158,7 +162,6 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
     lista.add(jsonEncode(brano));
     await prefs.setStringList("scaletta", lista);
     
-    // Se non è un salvataggio automatico (background), navighiamo alla scaletta
     if (!automatico) {
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ScalettaScreen()));
