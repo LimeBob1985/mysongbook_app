@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'crea_spartito_screen.dart';
 import 'scaletta_screen.dart';
 import 'componi_spartito_screen.dart';
+import 'live/live_screen.dart';
 
 class BozzeScreen extends StatefulWidget {
   const BozzeScreen({super.key});
@@ -29,42 +30,39 @@ class _BozzeScreenState extends State<BozzeScreen> {
 
     setState(() {
       bozze = listaBozze.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
-      
-      // Ordina per titolo in modo alfabetico (case-insensitive)
+
       bozze.sort((a, b) {
         String titoloA = (a["titolo"] ?? "Senza Titolo").toString().toLowerCase();
         String titoloB = (b["titolo"] ?? "Senza Titolo").toString().toLowerCase();
         return titoloA.compareTo(titoloB);
       });
-      
+
       bozzeFiltrate = List.from(bozze);
     });
   }
 
-  // --- LOGICA DI ELIMINAZIONE AGGIORNATA PER RECUPERO INTELLIGENTE ---
   Future<void> _eliminaBozza(int indexFiltrato) async {
     try {
       final bozza = Map<String, dynamic>.from(bozzeFiltrate[indexFiltrato]);
       final prefs = await SharedPreferences.getInstance();
-      
-      // Carica eliminati esistenti
-      final listaEliminati = prefs.getStringList("eliminati") ?? [];
-      List<Map<String, dynamic>> eliminati = listaEliminati.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
 
-      // AGGIUNTA TAG: Marciamo l'elemento come bozza prima di spostarlo negli eliminati
+      final listaEliminati = prefs.getStringList("eliminati") ?? [];
+      List<Map<String, dynamic>> eliminati =
+          listaEliminati.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+
       bozza["isBozza"] = true;
 
       setState(() {
-        bozze.removeWhere((element) => element["titolo"] == bozza["titolo"] && element["artista"] == bozza["artista"]);
+        bozze.removeWhere((element) =>
+            element["titolo"] == bozza["titolo"] &&
+            element["artista"] == bozza["artista"]);
         bozzeFiltrate.removeAt(indexFiltrato);
-        final stringaEliminato = jsonEncode(bozza);
-        listaEliminati.add(stringaEliminato);
+        listaEliminati.add(jsonEncode(bozza));
       });
 
-      // Salvataggio con await obbligatorio
       await prefs.setStringList("bozze", bozze.map((e) => jsonEncode(e)).toList());
       await prefs.setStringList("eliminati", listaEliminati);
-      
+
       debugPrint("Bozza marcata e spostata negli Eliminati.");
     } catch (e) {
       debugPrint("Errore durante l'eliminazione della bozza: $e");
@@ -77,14 +75,13 @@ class _BozzeScreenState extends State<BozzeScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // HEADER CON SCRITTA FISSA
+          // HEADER
           Container(
             color: Colors.black,
             child: SafeArea(
               bottom: false,
               child: Container(
                 height: 70,
-                width: double.infinity,
                 alignment: Alignment.center,
                 child: const Text(
                   "BOZZE",
@@ -99,16 +96,17 @@ class _BozzeScreenState extends State<BozzeScreen> {
             ),
           ),
 
-          // MENU DI NAVIGAZIONE CON ANIMAZIONI CORRETTE (VERSO SINISTRA)
+          // ⭐ MENU COMPLETO (crea spartito | scaletta | bozze | live)
           Container(
             height: 50,
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // CREA SPARTITO
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
-                    context, 
+                    context,
                     PageRouteBuilder(
                       pageBuilder: (_, __, ___) => const CreaSpartitoScreen(),
                       transitionDuration: const Duration(milliseconds: 300),
@@ -117,21 +115,30 @@ class _BozzeScreenState extends State<BozzeScreen> {
                           position: Tween<Offset>(
                             begin: const Offset(-1, 0),
                             end: Offset.zero,
-                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
                           child: child,
                         );
                       },
                     ),
                   ),
                   child: Text(
-                    "crea spartito", 
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)
+                    "crea spartito",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontSize: 14,
+                    ),
                   ),
                 ),
+
                 const SizedBox(width: 24),
+
+                // SCALETTA
                 GestureDetector(
                   onTap: () => Navigator.pushReplacement(
-                    context, 
+                    context,
                     PageRouteBuilder(
                       pageBuilder: (_, __, ___) => const ScalettaScreen(),
                       transitionDuration: const Duration(milliseconds: 300),
@@ -140,21 +147,66 @@ class _BozzeScreenState extends State<BozzeScreen> {
                           position: Tween<Offset>(
                             begin: const Offset(-1, 0),
                             end: Offset.zero,
-                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
                           child: child,
                         );
                       },
                     ),
                   ),
                   child: Text(
-                    "scaletta", 
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14)
+                    "scaletta",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontSize: 14,
+                    ),
                   ),
                 ),
+
                 const SizedBox(width: 24),
+
+                // BOZZE (attivo)
                 const Text(
-                  "bozze", 
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)
+                  "bozze",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(width: 24),
+
+                // LIVE
+                GestureDetector(
+                  onTap: () => Navigator.pushReplacement(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (_, __, ___) => const LiveScreen(),
+                      transitionDuration: const Duration(milliseconds: 300),
+                      transitionsBuilder: (_, animation, __, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(1, 0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
+                          child: child,
+                        );
+                      },
+                    ),
+                  ),
+                  child: Text(
+                    "live",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -186,11 +238,11 @@ class _BozzeScreenState extends State<BozzeScreen> {
                               Icon(Icons.delete_outline, color: Colors.white, size: 28),
                               SizedBox(height: 4),
                               Text(
-                                "Elimina", 
+                                "Elimina",
                                 style: TextStyle(
-                                  color: Colors.white, 
-                                  fontWeight: FontWeight.bold, 
-                                  fontSize: 12
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -202,8 +254,17 @@ class _BozzeScreenState extends State<BozzeScreen> {
                             backgroundColor: Colors.blueGrey,
                             child: Icon(Icons.edit_note, color: Colors.white),
                           ),
-                          title: Text(b["titolo"] ?? "Senza Titolo", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: Text(b["artista"] ?? "Artista sconosciuto", style: const TextStyle(color: Colors.white70)),
+                          title: Text(
+                            b["titolo"] ?? "Senza Titolo",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            b["artista"] ?? "Artista sconosciuto",
+                            style: const TextStyle(color: Colors.white70),
+                          ),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -211,7 +272,8 @@ class _BozzeScreenState extends State<BozzeScreen> {
                                 builder: (_) => ComponiSpartitoScreen(
                                   titolo: b["titolo"],
                                   artista: b["artista"],
-                                  testoIniziale: b["testo_originale"] ?? b["testo"] ?? "",
+                                  testoIniziale:
+                                      b["testo_originale"] ?? b["testo"] ?? "",
                                   righeSalvate: b["righe"],
                                 ),
                               ),

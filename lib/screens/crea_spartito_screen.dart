@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/parser_service.dart';
+
 import 'anteprima_spartito_screen.dart';
 import 'scaletta_screen.dart';
 import 'nuovo_spartito_screen.dart';
 import 'bozze_screen.dart';
+import 'live/live_screen.dart';
 
 class CreaSpartitoScreen extends StatefulWidget {
   const CreaSpartitoScreen({super.key});
@@ -42,7 +44,7 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // TESTATA NERA CON LOGO E TASTO +
+          // HEADER NERO CON LOGO + TASTO +
           Container(
             color: Colors.black,
             child: SafeArea(
@@ -53,12 +55,10 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // LOGO ORIZZONTALE (Rimpicciolito a 28)
                     Image.asset(
                       "assets/images/logo_horizontal.png",
                       height: 28,
                     ),
-                    // TASTO + A DESTRA NELLA STESSA FASCIA
                     Positioned(
                       right: 16,
                       child: IconButton(
@@ -77,18 +77,26 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
             ),
           ),
 
-          // SOTTOMENU (50px) con Animazioni Slide verso destra
+          // ⭐ SOTTOMENU COMPLETO (crea spartito | scaletta | bozze | live)
           Container(
             height: 50,
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // CREA SPARTITO (attivo)
                 const Text(
                   "crea spartito",
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+
                 const SizedBox(width: 24),
+
+                // SCALETTA
                 GestureDetector(
                   onTap: () {
                     Navigator.pushReplacement(
@@ -114,12 +122,15 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   child: Text(
                     "scaletta",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       fontSize: 14,
                     ),
                   ),
                 ),
+
                 const SizedBox(width: 24),
+
+                // BOZZE
                 GestureDetector(
                   onTap: () {
                     Navigator.pushReplacement(
@@ -145,7 +156,41 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
                   child: Text(
                     "bozze",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 24),
+
+                // LIVE
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const LiveScreen(),
+                        transitionDuration: const Duration(milliseconds: 300),
+                        transitionsBuilder: (_, animation, __, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  child: Text(
+                    "live",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.3),
                       fontSize: 14,
                     ),
                   ),
@@ -189,26 +234,23 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
           const SizedBox(height: 20),
 
           // PULSANTE AVVIA
-          Align(
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: avviaAttivo ? _avviaElaborazione : null,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: avviaAttivo 
-                      ? Colors.black 
-                      : Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "AVVIA",
-                  style: TextStyle(
-                    color: avviaAttivo ? Colors.white : Colors.white38,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                  ),
+          GestureDetector(
+            onTap: avviaAttivo ? _avviaElaborazione : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: avviaAttivo
+                    ? Colors.black
+                    : Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                "AVVIA",
+                style: TextStyle(
+                  color: avviaAttivo ? Colors.white : Colors.white38,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 1.0,
                 ),
               ),
             ),
@@ -216,64 +258,69 @@ class _CreaSpartitoScreenState extends State<CreaSpartitoScreen> {
 
           const SizedBox(height: 20),
 
-          // TITOLO + ARTISTA (CENTRATI)
+          // TITOLO + ARTISTA
           if (titolo.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 titolo,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
+
           if (artista.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 artista,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
               ),
             ),
 
           const Spacer(),
 
           // PULSANTE GENERA SPARTITO
-          Align(
-            alignment: Alignment.center,
-            child: GestureDetector(
-              onTap: generaAttivo
-                  ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AnteprimaSpartitoScreen(
-                            titolo: titolo,
-                            artista: artista,
-                            testoOriginale: testoOriginale,
-                            trasposizioneIniziale: 0,
-                          ),
+          GestureDetector(
+            onTap: generaAttivo
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AnteprimaSpartitoScreen(
+                          titolo: titolo,
+                          artista: artista,
+                          testoOriginale: testoOriginale,
+                          trasposizioneIniziale: 0,
                         ),
-                      );
-                    }
-                  : null,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 40),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: generaAttivo
-                      ? const Color(0xFFFFC107)
-                      : const Color(0xFFFFC107).withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "GENERA SPARTITO",
-                  style: TextStyle(
-                    color: generaAttivo ? Colors.black : Colors.black38,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                  ),
+                      ),
+                    );
+                  }
+                : null,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: generaAttivo
+                    ? const Color(0xFFFFC107)
+                    : const Color(0xFFFFC107).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                "GENERA SPARTITO",
+                style: TextStyle(
+                  color: generaAttivo ? Colors.black : Colors.black38,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  letterSpacing: 1.0,
                 ),
               ),
             ),

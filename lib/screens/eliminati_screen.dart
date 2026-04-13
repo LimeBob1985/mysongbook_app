@@ -4,9 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/file_storage_service.dart';
 
+// SCHERMATE PRINCIPALI
 import 'crea_spartito_screen.dart';
 import 'scaletta_screen.dart';
 import 'bozze_screen.dart';
+import 'live/live_screen.dart';
+
 
 class EliminatiScreen extends StatefulWidget {
   const EliminatiScreen({super.key});
@@ -243,47 +246,77 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
             ),
           ),
 
-          // TAB BAR
-          Container(
-            height: 50,
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const CreaSpartitoScreen())),
-                  child: Text("crea spartito",
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
-                ),
-                const SizedBox(width: 24),
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ScalettaScreen())),
-                  child: Text("scaletta",
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
-                ),
-                const SizedBox(width: 24),
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const BozzeScreen())),
-                  child: Text("bozze",
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.3), fontSize: 14)),
-                ),
-              ],
-            ),
+ // TAB BAR
+Container(
+  height: 50,
+  alignment: Alignment.center,
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      GestureDetector(
+        onTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CreaSpartitoScreen()),
+        ),
+        child: Text(
+          "crea spartito",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.3),
+            fontSize: 14,
           ),
+        ),
+      ),
+      const SizedBox(width: 24),
 
-          const SizedBox(height: 10),
+      GestureDetector(
+        onTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ScalettaScreen()),
+        ),
+        child: Text(
+          "scaletta",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.3),
+            fontSize: 14,
+          ),
+        ),
+      ),
+      const SizedBox(width: 24),
+
+      GestureDetector(
+        onTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BozzeScreen()),
+        ),
+        child: Text(
+          "bozze",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.3),
+            fontSize: 14,
+          ),
+        ),
+      ),
+      const SizedBox(width: 24),
+
+      GestureDetector(
+        onTap: () => Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LiveScreen()),
+        ),
+        child: Text(
+          "live",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.3),
+            fontSize: 14,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 10),
+
 
           // LISTA ELIMINATI
           Expanded(

@@ -3,12 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/file_storage_service.dart';
+import '../services/live_list_storage.dart';
+import '../models/live_list.dart';
 
 import 'crea_spartito_screen.dart';
 import 'lettura_spartito_screen.dart';
 import 'eliminati_screen.dart';
 import 'nuovo_spartito_screen.dart';
 import 'bozze_screen.dart';
+
+// ⭐ AGGIUNTO: IMPORT DELLA PAGINA LIVE
+import 'live/live_screen.dart';
+
+// ⭐ AGGIUNTO: IMPORT DELLA SCALETTA
+import 'package:my_song_book/screens/scaletta_screen.dart';
+
+
 
 class ScalettaScreen extends StatefulWidget {
   const ScalettaScreen({super.key});
@@ -27,6 +37,9 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
   final List<String> alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   String letteraAttiva = "";
+
+  // Inizializzazione storage per LiveList
+  final LiveListStorage _liveStorage = LiveListStorage();
 
   @override
   void initState() {
@@ -73,30 +86,37 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
     }
   }
 
-  // -------------------------------------------------------------
-  // CARICAMENTO LISTE DA SHAREDPREFERENCES
-  // -------------------------------------------------------------
-  Future<void> _caricaListe() async {
-    final prefs = await SharedPreferences.getInstance();
-    final listaScaletta = prefs.getStringList("scaletta") ?? [];
-    final listaEliminati = prefs.getStringList("eliminati") ?? [];
+ // -------------------------------------------------------------
+// CARICAMENTO LISTE DA SHAREDPREFERENCES
+// -------------------------------------------------------------
+Future<void> _caricaListe() async {
+  final prefs = await SharedPreferences.getInstance();
+  final listaScaletta = prefs.getStringList("scaletta") ?? [];
+  final listaEliminati = prefs.getStringList("eliminati") ?? [];
 
-    setState(() {
-      scaletta = listaScaletta.map<Map<String, dynamic>>((e) {
-        Map<String, dynamic> data = jsonDecode(e);
-        // Protezione dati: ci assicuriamo che le chiavi esistano
-        data["titolo"] ??= "Senza Titolo";
-        data["artista"] ??= "";
-        data["testo"] ??= "";
-        data["trasposizione"] ??= 0;
-        return data;
-      }).toList();
+  setState(() {
+    scaletta = listaScaletta.map<Map<String, dynamic>>((e) {
+      Map<String, dynamic> data = jsonDecode(e);
 
-      eliminati =
-          listaEliminati.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
-      _ordinaEAggiorna();
-    });
-  }
+      // ⭐ AGGIUNTA CHIRURGICA: assegna un ID permanente se manca
+      data["id"] ??= DateTime.now().millisecondsSinceEpoch.toString();
+
+      // Protezione dati: ci assicuriamo che le chiavi esistano
+      data["titolo"] ??= "Senza Titolo";
+      data["artista"] ??= "";
+      data["testo"] ??= "";
+      data["trasposizione"] ??= 0;
+
+      return data;
+    }).toList();
+
+    eliminati =
+        listaEliminati.map<Map<String, dynamic>>((e) => jsonDecode(e)).toList();
+
+    _ordinaEAggiorna();
+  });
+}
+
 
   // -------------------------------------------------------------
   // SALVATAGGIO LISTE
@@ -390,68 +410,104 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
                 const SizedBox(width: 24),
 
-                // BOZZE
-                GestureDetector(
-                  onTap: () => Navigator.pushReplacement(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (_, __, ___) =>
-                          const BozzeScreen(),
-                      transitionDuration:
-                          const Duration(milliseconds: 300),
-                      transitionsBuilder:
-                          (_, animation, __, child) {
-                        return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(1, 0),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            ),
-                          ),
-                          child: child,
-                        );
-                      },
-                    ),
-                  ),
-                  child: Text(
-                    "bozze",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
+// BOZZE
+GestureDetector(
+  onTap: () => Navigator.pushReplacement(
+    context,
+    PageRouteBuilder(
+      pageBuilder: (_, __, ___) =>
+          const BozzeScreen(),
+      transitionDuration:
+          const Duration(milliseconds: 300),
+      transitionsBuilder:
+          (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
             ),
           ),
+          child: child,
+        );
+      },
+    ),
+  ),
+  child: Text(
+    "bozze",
+    style: TextStyle(
+      color: Colors.white.withOpacity(0.3),
+      fontSize: 14,
+    ),
+  ),
+),
 
-          // BARRA DI RICERCA
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                  border:
-                      Border.all(color: Colors.white54, width: 1.5),
-                  borderRadius: BorderRadius.circular(4)),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _eseguiRicerca,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 16),
-                decoration: const InputDecoration(
-                    hintText: "Cerca una canzone o un artista....",
-                    hintStyle:
-                        TextStyle(color: Colors.white38),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 15, vertical: 12)),
-              ),
+// ⭐⭐⭐ LIVE INSERITO QUI ⭐⭐⭐
+const SizedBox(width: 24),
+
+GestureDetector(
+  onTap: () => Navigator.pushReplacement(
+    context,
+    PageRouteBuilder(
+      pageBuilder: (_, __, ___) => const LiveScreen(),
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionsBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
             ),
           ),
+          child: child,
+        );
+      },
+    ),
+  ),
+  child: Text(
+    "live",
+    style: TextStyle(
+      color: Colors.white.withOpacity(0.3),
+      fontSize: 14,
+    ),
+  ),
+),
+// ⭐⭐⭐ FINE LIVE ⭐⭐⭐
+
+],
+),
+),
+
+// BARRA DI RICERCA
+Padding(
+  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+  child: Container(
+    height: 48,
+    decoration: BoxDecoration(
+        border:
+            Border.all(color: Colors.white54, width: 1.5),
+        borderRadius: BorderRadius.circular(4)),
+    child: TextField(
+      controller: _searchController,
+      onChanged: _eseguiRicerca,
+      style: const TextStyle(
+          color: Colors.white, fontSize: 16),
+      decoration: const InputDecoration(
+          hintText: "Cerca una canzone o un artista....",
+          hintStyle:
+              TextStyle(color: Colors.white38),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 15, vertical: 12)),
+    ),
+  ),
+),
 
           // LISTA BRANI
           Expanded(
@@ -504,14 +560,16 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
 
                           Dismissible(
                             key: ObjectKey(brano),
-                            direction:
-                                DismissDirection.endToStart,
-                            background: const SizedBox(),
+                            direction: DismissDirection.horizontal,
+                            background: Container(
+                              color: Colors.green,
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 20),
+                              child: const Icon(Icons.playlist_add, color: Colors.white, size: 28),
+                            ),
                             secondaryBackground: Container(
                               alignment: Alignment.centerRight,
-                              padding:
-                                  const EdgeInsets.only(
-                                      right: 20),
+                              padding: const EdgeInsets.only(right: 20),
                               color: Colors.red,
                               child: const Column(
                                 mainAxisAlignment:
@@ -530,10 +588,14 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                                 ],
                               ),
                             ),
-                            confirmDismiss:
-                                (direction) async {
-                              await _eliminaBrano(index);
-                              return true;
+                            confirmDismiss: (direction) async {
+                              if (direction == DismissDirection.startToEnd) {
+                                _mostraDialogAggiungiALiveList(brano);
+                                return false;
+                              } else {
+                                await _eliminaBrano(index);
+                                return true;
+                              }
                             },
                             child: ListTile(
                               leading: Container(
@@ -679,6 +741,108 @@ class _ScalettaScreenState extends State<ScalettaScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // FUNZIONI LIVE LIST
+  // -------------------------------------------------------------
+
+  void _mostraDialogAggiungiALiveList(Map<String, dynamic> brano) async {
+    final lists = await _liveStorage.loadLists();
+    final titolo = brano["titolo"] ?? "";
+    final artista = brano["artista"] ?? "";
+    final id = "$titolo|$artista";
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Aggiungi a LiveList"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // CREA NUOVA LISTA
+            ListTile(
+              leading: const Icon(Icons.create_new_folder),
+              title: const Text("Crea nuova LiveList"),
+              onTap: () async {
+                Navigator.pop(context);
+                _creaNuovaLiveListEaggiungi(id);
+              },
+            ),
+
+            const Divider(),
+
+            // LISTE ESISTENTI
+            if (lists.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text("Nessuna LiveList presente."),
+              )
+            else
+              ...lists.map((list) {
+                return ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: Text("${list.name} (${list.songIds.length})"),
+                  onTap: () async {
+                    final updated = list.copyWith(
+                      songIds: [...list.songIds, id],
+                    );
+                    final all = await _liveStorage.loadLists();
+                    final index = all.indexWhere((l) => l.id == list.id);
+                    if (index != -1) {
+                      all[index] = updated;
+                      await _liveStorage.saveLists(all);
+                    }
+                    if (mounted) Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _creaNuovaLiveListEaggiungi(String idBrano) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Nuova LiveList"),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: "Nome lista"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Annulla"),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+
+              final newList = LiveList(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                name: name,
+                songIds: [idBrano],
+              );
+
+              final all = await _liveStorage.loadLists();
+              all.add(newList);
+              await _liveStorage.saveLists(all);
+
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text("Crea"),
           ),
         ],
       ),
