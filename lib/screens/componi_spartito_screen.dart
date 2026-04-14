@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'scaletta_screen.dart'; // Import necessario per la navigazione
 
 class BoldTextEditingController extends TextEditingController {
   static const String boldTag = '\u200D';
@@ -120,7 +121,6 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen>
 
   void _inizializzaStruttura() {
     try {
-      // Priorità al caricamento strutturato (JSON)
       if (widget.righeSalvate != null && widget.righeSalvate!.isNotEmpty) {
         for (var r in widget.righeSalvate!) {
           String tipoString = r['tipo'] ?? 'testo';
@@ -149,18 +149,14 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen>
             ),
           );
         }
-      }
-      // Caricamento da testo piano (es. prima importazione o stringa salvata)
-      else {
+      } else {
         final linee = widget.testoIniziale.split('\n');
         for (String linea in linee) {
           final trimLine = linea.trim();
 
           if (trimLine.isEmpty) {
             _struttura.add(RigaOggetto(tipo: TipoRiga.vuota));
-          }
-          // RIGA ACCORDI SOLO SE È ESATTAMENTE "[AC]"
-          else if (trimLine == "[AC]") {
+          } else if (trimLine == "[AC]") {
             _struttura.add(
               RigaOggetto(
                 tipo: TipoRiga.accordi,
@@ -168,9 +164,7 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen>
                 accordi: [],
               ),
             );
-          }
-          // Tutto il resto è SEMPRE testo
-          else {
+          } else {
             _struttura.add(
               RigaOggetto(
                 tipo: TipoRiga.testo,
@@ -676,7 +670,17 @@ class _ComponiSpartitoScreenState extends State<ComponiSpartitoScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isBozza ? "Salvato nelle Bozze!" : "Spostato in Scaletta!"))
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+
+      // ⭐ MODIFICA NAVIGAZIONE: Torna a SCALETTA con Fade rapido
+      Navigator.pushAndRemoveUntil(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const ScalettaScreen(),
+          transitionDuration: const Duration(milliseconds: 250),
+          transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+        ),
+        (route) => false, // Rimuove tutte le rotte precedenti (pulisce lo stack)
+      );
     }
   }
 }

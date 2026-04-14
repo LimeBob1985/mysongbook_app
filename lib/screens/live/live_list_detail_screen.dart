@@ -6,7 +6,7 @@ import '../../models/live_list.dart';
 import '../../services/live_list_storage.dart';
 import '../scaletta_screen.dart';
 import '../lettura_spartito_screen.dart';
-import '../live/live_screen.dart'; // ⭐ AGGIUNTO IMPORT NECESSARIO
+import '../live/live_screen.dart'; 
 
 class LiveListDetailScreen extends StatefulWidget {
   final LiveList list;
@@ -20,6 +20,7 @@ class LiveListDetailScreen extends StatefulWidget {
 class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
   final LiveListStorage storage = LiveListStorage();
 
+  // ⭐ APERTURA SPARTITO CON FADE RAPIDO
   Future<void> _apriSpartito(String id) async {
     final parts = id.split("|");
     final titolo = parts[0];
@@ -50,12 +51,17 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LetturaSpartitoScreen(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => LetturaSpartitoScreen(
           titolo: branoTrovato!["titolo"] ?? "",
           artista: branoTrovato!["artista"] ?? "",
           testoCompleto: branoTrovato!["testoCompleto"] ?? "",
           trasposizione: branoTrovato!["trasposizione"] ?? 0,
+        ),
+        transitionDuration: const Duration(milliseconds: 200),
+        transitionsBuilder: (_, anim, __, child) => FadeTransition(
+          opacity: anim,
+          child: child,
         ),
       ),
     );
@@ -78,10 +84,9 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF303030),
-
       body: Column(
         children: [
-          // ⭐ HEADER
+          // HEADER
           Container(
             color: Colors.black,
             child: SafeArea(
@@ -95,15 +100,26 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () {
+                        // ⭐ RITORNO A LIVE CON SLIDE DA SINISTRA A DESTRA
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const LiveScreen(), // ⭐ MODIFICA APPLICATA
+                          PageRouteBuilder(
+                            pageBuilder: (_, __, ___) => const LiveScreen(),
+                            transitionDuration: const Duration(milliseconds: 300),
+                            transitionsBuilder: (_, anim, __, child) => SlideTransition(
+                              position: Tween(
+                                begin: const Offset(-1, 0), // Parte da sinistra
+                                end: Offset.zero,
+                              ).animate(CurvedAnimation(
+                                parent: anim,
+                                curve: Curves.easeOutCubic,
+                              )),
+                              child: child,
+                            ),
                           ),
                         );
                       },
                     ),
-
                     Text(
                       widget.list.name.toUpperCase(),
                       style: const TextStyle(
@@ -112,7 +128,6 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                         fontSize: 16,
                       ),
                     ),
-
                     const SizedBox(width: 48),
                   ],
                 ),
@@ -120,13 +135,11 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
             ),
           ),
 
-          // ⭐ LISTA BRANI LIVE
+          // LISTA BRANI LIVE
           Expanded(
             child: ReorderableListView.builder(
               padding: const EdgeInsets.only(top: 10),
-
               buildDefaultDragHandles: false,
-
               proxyDecorator: (child, index, animation) {
                 return Material(
                   color: Colors.transparent,
@@ -139,9 +152,7 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                   ),
                 );
               },
-
               itemCount: widget.list.songIds.length,
-
               onReorder: (oldIndex, newIndex) async {
                 if (newIndex > oldIndex) newIndex--;
 
@@ -156,14 +167,12 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
 
                 setState(() {});
               },
-
               itemBuilder: (_, index) {
                 final id = widget.list.songIds[index];
 
                 return Dismissible(
                   key: ValueKey("dismiss-$id"),
                   direction: DismissDirection.endToStart,
-
                   background: Container(
                     color: Colors.red,
                     padding: const EdgeInsets.only(right: 20),
@@ -183,19 +192,15 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                       ],
                     ),
                   ),
-
                   confirmDismiss: (_) async {
                     await _rimuoviDaLiveList(id);
                     return true;
                   },
-
                   child: ReorderableDelayedDragStartListener(
                     index: index,
-
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
-
                       leading: Container(
                         width: 10,
                         height: 10,
@@ -204,7 +209,6 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                           shape: BoxShape.circle,
                         ),
                       ),
-
                       title: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -226,9 +230,6 @@ class _LiveListDetailScreenState extends State<LiveListDetailScreen> {
                           ),
                         ],
                       ),
-
-                      trailing: null,
-
                       onTap: () => _apriSpartito(id),
                     ),
                   ),

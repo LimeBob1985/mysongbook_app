@@ -126,14 +126,12 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
       String rigaCorrente = righeOriginali[i];
       
       if (rigaEAccordo[i]) {
-        // Se è riga d'accordi, salviamo gli oggetti accordo ma NON perdiamo il riferimento al testo originale
         strutturaCompleta.add({
           'tipo': 'accordi',
-          'testo': rigaCorrente, // Mantengo il testo originale per coerenza
+          'testo': rigaCorrente,
           'accordi': accordiPosizionati[i] ?? [],
         });
       } else {
-        // Se è riga di testo, salviamo il testo normale
         strutturaCompleta.add({
           'tipo': rigaCorrente.trim().isEmpty ? 'vuota' : 'testo',
           'testo': rigaCorrente,
@@ -145,7 +143,7 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
     final Map<String, dynamic> brano = {
       "titolo": widget.titolo,
       "artista": widget.artista,
-      "testo": testoOriginale, // Campo standard per ScalettaScreen
+      "testo": testoOriginale, 
       "testo_originale": testoOriginale,
       "trasposizione": trasposizione,
       "struttura_completa": strutturaCompleta,
@@ -175,10 +173,23 @@ class _AnteprimaSpartitoScreenState extends State<AnteprimaSpartitoScreen> with 
       body: Column(
         children: [
           Container(
-            height: 80,
             color: Colors.black,
-            alignment: Alignment.center,
-            child: SafeArea(child: Image.asset("assets/images/logo_horizontal.png", height: 36)),
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                height: 70,
+                alignment: Alignment.center, 
+                child: const Text(
+                  "ANTEPRIMA", 
+                  style: TextStyle(
+                    color: Colors.white, 
+                    fontWeight: FontWeight.bold, 
+                    letterSpacing: 1.2, 
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
           ),
           _buildToolbar(),
           Expanded(

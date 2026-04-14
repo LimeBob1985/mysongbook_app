@@ -27,6 +27,23 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     _caricaEliminati();
   }
 
+  // Funzione di navigazione rapida (Fade) specifica per iOS/iPadOS
+  void _nav(Widget screen) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionDuration: const Duration(milliseconds: 200), // Molto rapida
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _caricaEliminati() async {
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList("eliminati") ?? [];
@@ -47,7 +64,6 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
       final prefs = await SharedPreferences.getInstance();
       final brano = eliminati[index];
 
-      // 1) rimuovi dagli eliminati
       setState(() {
         eliminati.removeAt(index);
       });
@@ -57,7 +73,6 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
 
-      // 2) ripristina in scaletta
       final listaScaletta = prefs.getStringList("scaletta") ?? [];
       List<Map<String, dynamic>> scaletta =
           listaScaletta.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
@@ -77,21 +92,18 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     }
   }
 
-  // ELIMINAZIONE DEFINITIVA (file + tutte le liste)
+  // ELIMINAZIONE DEFINITIVA
   Future<void> _eliminaDefinitivamente(int index) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final brano = eliminati[index];
 
-      // 1) elimina file fisico dall’iPhone
       await FileStorageService.deleteSong(brano);
 
-      // 2) rimuovi dagli eliminati
       setState(() {
         eliminati.removeAt(index);
       });
 
-      // 3) rimuovi dalla scaletta
       final listaScaletta = prefs.getStringList("scaletta") ?? [];
       List<Map<String, dynamic>> scaletta =
           listaScaletta.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
@@ -104,7 +116,6 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
         scaletta.map((e) => jsonEncode(e)).toList(),
       );
 
-      // 4) rimuovi dalle bozze
       final listaBozze = prefs.getStringList("bozze") ?? [];
       List<Map<String, dynamic>> bozze =
           listaBozze.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
@@ -117,13 +128,12 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
         bozze.map((e) => jsonEncode(e)).toList(),
       );
 
-      // 5) salva eliminati aggiornati
       await prefs.setStringList(
         "eliminati",
         eliminati.map((e) => jsonEncode(e)).toList(),
       );
 
-      debugPrint("Brano eliminato definitivamente da tutte le liste + file cancellato.");
+      debugPrint("Brano eliminato definitivamente.");
     } catch (e) {
       debugPrint("Errore eliminazione definitiva: $e");
     }
@@ -194,38 +204,25 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
     if (conferma == true) {
       try {
         final prefs = await SharedPreferences.getInstance();
-
-        // elimina fisicamente tutti i file
         for (final brano in eliminati) {
           await FileStorageService.deleteSong(brano);
         }
-
-        // svuota tutte le liste
         await prefs.setStringList("eliminati", []);
-        await prefs.setStringList("scaletta", []);
-        await prefs.setStringList("bozze", []);
-
         setState(() {
           eliminati.clear();
         });
-
-        debugPrint("Cestino svuotato + file cancellati + liste pulite.");
       } catch (e) {
         debugPrint("Errore svuotamento cestino: $e");
       }
     }
   }
 
-  // -------------------------------------------------------------
-  // UI
-  // -------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF303030),
       body: Column(
         children: [
-          // HEADER
           Container(
             color: Colors.black,
             child: SafeArea(
@@ -246,79 +243,65 @@ class _EliminatiScreenState extends State<EliminatiScreen> {
             ),
           ),
 
- // TAB BAR
-Container(
-  height: 50,
-  alignment: Alignment.center,
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      GestureDetector(
-        onTap: () => Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CreaSpartitoScreen()),
-        ),
-        child: Text(
-          "crea spartito",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.3),
-            fontSize: 14,
+          // TAB BAR con navigazione Fade rapida
+          Container(
+            height: 50,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () => _nav(const CreaSpartitoScreen()),
+                  child: Text(
+                    "crea spartito",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+
+                GestureDetector(
+                  onTap: () => _nav(const ScalettaScreen()),
+                  child: Text(
+                    "scaletta",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+
+                GestureDetector(
+                  onTap: () => _nav(const BozzeScreen()),
+                  child: Text(
+                    "bozze",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+
+                GestureDetector(
+                  onTap: () => _nav(const LiveScreen()),
+                  child: Text(
+                    "live",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-      const SizedBox(width: 24),
 
-      GestureDetector(
-        onTap: () => Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ScalettaScreen()),
-        ),
-        child: Text(
-          "scaletta",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.3),
-            fontSize: 14,
-          ),
-        ),
-      ),
-      const SizedBox(width: 24),
+          const SizedBox(height: 10),
 
-      GestureDetector(
-        onTap: () => Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const BozzeScreen()),
-        ),
-        child: Text(
-          "bozze",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.3),
-            fontSize: 14,
-          ),
-        ),
-      ),
-      const SizedBox(width: 24),
-
-      GestureDetector(
-        onTap: () => Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LiveScreen()),
-        ),
-        child: Text(
-          "live",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.3),
-            fontSize: 14,
-          ),
-        ),
-      ),
-    ],
-  ),
-),
-
-const SizedBox(height: 10),
-
-
-          // LISTA ELIMINATI
           Expanded(
             child: eliminati.isEmpty
                 ? const Center(
@@ -408,40 +391,48 @@ const SizedBox(height: 10),
                   ),
           ),
 
-          // FOOTER
+// FOOTER
           Container(
             width: double.infinity,
             color: Colors.grey.shade400,
             child: SafeArea(
               top: false,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("ELIMINATI: ${eliminati.length}",
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: SizedBox(
+                  height: 28, // Altezza fissa per bloccare il posizionamento
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "ELIMINATI: ${eliminati.length}",
                         style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold)),
-                    if (eliminati.isNotEmpty)
-                      GestureDetector(
-                        onTap: _svuotaCestino,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text("SVUOTA CESTINO",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12)),
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                  ],
+                      if (eliminati.isNotEmpty)
+                        GestureDetector(
+                          onTap: _svuotaCestino,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              "SVUOTA CESTINO",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

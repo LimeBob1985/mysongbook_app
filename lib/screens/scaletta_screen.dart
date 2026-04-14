@@ -713,31 +713,51 @@ Padding(
             ),
           ),
 
-          // FOOTER ELIMINATI
+// FOOTER ELIMINATI
           GestureDetector(
             onTap: eliminati.isEmpty
                 ? null
                 : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const EliminatiScreen()))
-                    .then((_) {
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const EliminatiScreen(),
+                        transitionDuration: const Duration(milliseconds: 200),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                      ),
+                    ).then((_) {
                       if (mounted) _caricaListe();
                     }),
             child: Container(
               width: double.infinity,
               color: eliminati.isEmpty
-                  ? Colors.grey.withOpacity(0.1)
+                  ? Colors.grey.withValues(alpha: 0.1)
                   : Colors.grey.shade400,
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text("ELIMINATI: ${eliminati.length}",
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: SizedBox(
+                    height: 28, // Altezza fissa identica a EliminatiScreen
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "ELIMINATI: ${eliminati.length}",
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -770,14 +790,12 @@ Padding(
             ListTile(
               leading: const Icon(Icons.create_new_folder),
               title: const Text("Crea nuova LiveList"),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(context);
                 _creaNuovaLiveListEaggiungi(id);
               },
             ),
-
             const Divider(),
-
             // LISTE ESISTENTI
             if (lists.isEmpty)
               const Padding(
@@ -802,7 +820,7 @@ Padding(
                     if (mounted) Navigator.pop(context);
                   },
                 );
-              }).toList(),
+              }),
           ],
         ),
       ),
