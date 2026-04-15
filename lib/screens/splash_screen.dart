@@ -30,18 +30,12 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       
-      // ⭐ MODIFICA: Navigazione con Fade rapido compatibile iOS
+      // ⭐ MODIFICA: Navigazione Nativa iOS (senza Fade manuale)
+      // Usando MaterialPageRoute, iOS applicherà l'animazione di sistema predefinita.
       Navigator.pushReplacement(
         context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const CreaSpartitoScreen(),
-          transitionDuration: const Duration(milliseconds: 250), // Fade rapido
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
+        MaterialPageRoute(
+          builder: (context) => const CreaSpartitoScreen(),
         ),
       );
     });
